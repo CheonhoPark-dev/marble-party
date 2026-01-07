@@ -1,13 +1,61 @@
 import { useEffect, useRef, useState } from 'react'
 import Matter from 'matter-js'
 
-export function GameScreen({ participantCount, onBack }) {
+export function GameScreen({ candidates = [], assignments = {}, lastObstacleAction, onBack }) {
   const sceneRef = useRef(null)
   const engineRef = useRef(null)
   const renderRef = useRef(null)
   const runnerRef = useRef(null)
   const spawnedRef = useRef(0)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    if (!engineRef.current) return
+
+    const theme = {
+      text: getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim()
+    }
+
+    const bodies = Matter.Composite.allBodies(engineRef.current.world)
+    const assignedList = Object.values(assignments)
+
+    bodies.forEach((body) => {
+      if (!body.isObstacle) {
+        return
+      }
+
+      const assignment = assignedList[body.obstacleSlot]
+
+      if (assignment) {
+        body.render.fillStyle = assignment.color
+        body.obstacleLabel = assignment.nickname
+        body.obstacleId = assignment.obstacleId
+        body.isAssigned = true
+      } else {
+        body.render.fillStyle = theme.text
+        body.obstacleLabel = null
+        body.obstacleId = null
+        body.isAssigned = false
+      }
+    })
+  }, [assignments, dimensions])
+
+  useEffect(() => {
+    if (!engineRef.current || !lastObstacleAction) return
+    
+    const { obstacleId } = lastObstacleAction
+    const bodies = Matter.Composite.allBodies(engineRef.current.world)
+    const targetBody = bodies.find(b => b.customId === obstacleId)
+    
+    if (targetBody) {
+       Matter.Body.translate(targetBody, { x: 0, y: -5 })
+       setTimeout(() => {
+         if (targetBody && targetBody.parent) { 
+            Matter.Body.translate(targetBody, { x: 0, y: 5 })
+         }
+       }, 50)
+    }
+  }, [lastObstacleAction])
 
   useEffect(() => {
     const handleResize = () => {
@@ -39,12 +87,13 @@ export function GameScreen({ participantCount, onBack }) {
       white: styles.getPropertyValue('--color-white').trim(),
     }
 
-    const Engine = Matter.Engine,
+      const Engine = Matter.Engine,
       Render = Matter.Render,
       Runner = Matter.Runner,
       Bodies = Matter.Bodies,
       Composite = Matter.Composite,
-      Common = Matter.Common
+      Common = Matter.Common,
+      Events = Matter.Events
 
     const engine = Engine.create()
     engineRef.current = engine
@@ -62,6 +111,38 @@ export function GameScreen({ participantCount, onBack }) {
       }
     })
     renderRef.current = render
+
+    Events.on(render, 'afterRender', () => {
+      const context = render.context
+      const bodies = Composite.allBodies(engine.world)
+
+      context.font = "bold 14px sans-serif"
+      context.textAlign = "center"
+      context.textBaseline = "middle"
+      context.lineWidth = 3
+      context.strokeStyle = theme.surface
+      
+      bodies.forEach(body => {
+        if (body.label && body.label.startsWith('marble-')) {
+          const { x, y } = body.position
+          const text = body.customName || ''
+          
+          context.strokeText(text, x, y - 22)
+          context.fillStyle = theme.text
+          context.fillText(text, x, y - 22)
+        } else if (body.obstacleLabel) {
+          const { x, y } = body.position
+          const text = body.obstacleLabel
+          
+          context.save()
+          context.font = "bold 10px sans-serif"
+          context.strokeText(text, x, y - 14)
+          context.fillStyle = theme.white
+          context.fillText(text, x, y - 14)
+          context.restore()
+        }
+      })
+    })
 
     const { width, height } = dimensions
     const wallThickness = 60
@@ -119,6 +200,7 @@ export function GameScreen({ participantCount, onBack }) {
                 })
             }
             
+            obstacle.customId = obstacles.length
             obstacles.push(obstacle)
         }
     }
@@ -171,7 +253,7 @@ export function GameScreen({ participantCount, onBack }) {
   useEffect(() => {
     if (!engineRef.current || dimensions.width === 0) return
     
-    const currentCount = participantCount || 0
+    const currentCount = candidates.length
     if (currentCount < spawnedRef.current) {
         spawnedRef.current = 0
     }
@@ -193,33 +275,44 @@ export function GameScreen({ participantCount, onBack }) {
       const Common = Matter.Common
 
       const newMarbles = []
-      const colors = [theme.primary, theme.secondary, theme.success, theme.warning]
-      
-      for (let i = 0; i < needed; i++) {
+      const colors = [theme.primary, theme.secondary, theme.success, theme.warning, '#9B59B6', '#E67E22', '#1ABC9C', '#34495E']
+
+      for (let i = 0; i < needed; i += 1) {
         const x = Common.random(dimensions.width * 0.4, dimensions.width * 0.6)
         const y = -40 - (i * 50)
-        const size = Common.random(14, 18) 
-        
-        const randomColor = Common.choose(colors)
-        
+        const size = Common.random(14, 18)
+
+        const candidateIndex = spawnedRef.current + i
+        const candidate = candidates[candidateIndex]
+        if (!candidate) {
+          continue
+        }
+
+        const isObject = typeof candidate === 'object' && candidate !== null
+        const assignedColor = isObject && candidate.color ? candidate.color : colors[candidateIndex % colors.length]
+        const nickname = isObject ? candidate.nickname : candidate
+        const labelId = isObject && candidate.id ? candidate.id : candidateIndex
+
         const marble = Bodies.circle(x, y, size, {
-          restitution: 0.6, 
+          label: `marble-${labelId}`,
+          restitution: 0.6,
           friction: 0.005,
-          frictionAir: 0.001, 
-          density: 0.05, 
+          frictionAir: 0.001,
+          density: 0.05,
           render: {
-            fillStyle: randomColor,
+            fillStyle: assignedColor,
             strokeStyle: theme.text,
             lineWidth: 3
           }
         })
+        marble.customName = nickname || `P${candidateIndex + 1}`
         newMarbles.push(marble)
       }
 
       Composite.add(engineRef.current.world, newMarbles)
       spawnedRef.current = currentCount
     }
-  }, [participantCount, dimensions])
+  }, [candidates, dimensions])
 
   return (
     <div className="card animate-enter" style={{ 
@@ -250,7 +343,7 @@ export function GameScreen({ participantCount, onBack }) {
              borderWidth: 'var(--border-width-thick)',
              boxShadow: 'var(--shadow-sm)'
            }}>
-             MARBLES: {participantCount}
+             MARBLES: {candidates.length}
            </div>
         </div>
 

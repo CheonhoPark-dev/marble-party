@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { HostScreen } from './components/HostScreen'
 import { GameScreen } from './components/GameScreen'
+import { ControllerScreen } from './components/ControllerScreen'
 import { JoinScreen } from './components/JoinScreen'
 import { WaitingScreen } from './components/WaitingScreen'
 import { RulesScreen } from './components/RulesScreen'
@@ -9,6 +10,62 @@ import { FeedbackModal } from './components/FeedbackModal'
 import { normalizeRoomCode, sanitizeDisplayName } from '@repo/internal-utils'
 
 const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+const CANDIDATE_SPLIT_REGEX = /[\n,]+/g
+const CANDIDATE_COUNT_REGEX = /\*(\d+)$/
+
+function parseCandidateEntries(raw) {
+  return String(raw ?? '')
+    .split(CANDIDATE_SPLIT_REGEX)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const match = entry.match(CANDIDATE_COUNT_REGEX)
+      if (!match) {
+        return { name: entry, count: 1 }
+      }
+      const count = Math.max(1, Number(match[1] || 1))
+      const name = entry.slice(0, match.index).trim()
+      if (!name) {
+        return null
+      }
+      return { name, count }
+    })
+    .filter(Boolean)
+}
+
+function normalizeCandidateText(raw) {
+  const entries = parseCandidateEntries(raw)
+  const counts = new Map()
+  const order = []
+
+  entries.forEach(({ name, count }) => {
+    if (!counts.has(name)) {
+      order.push(name)
+      counts.set(name, 0)
+    }
+    counts.set(name, (counts.get(name) || 0) + count)
+  })
+
+  return order
+    .map((name) => {
+      const count = counts.get(name) || 0
+      return count > 1 ? `${name}*${count}` : name
+    })
+    .join(', ')
+}
+
+function expandCandidateList(raw) {
+  const entries = parseCandidateEntries(raw)
+  const expanded = []
+
+  entries.forEach(({ name, count }) => {
+    for (let i = 0; i < count; i += 1) {
+      expanded.push(name)
+    }
+  })
+
+  return expanded
+}
 
 function getWsBase(apiBase) {
   if (apiBase.startsWith('https://')) {
@@ -43,6 +100,13 @@ function App() {
   const [isBusy, setIsBusy] = useState(false)
   const [joinUrl, setJoinUrl] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
+  const [candidateText, setCandidateText] = useState('')
+  const [gameData, setGameData] = useState(null)
+  const [assignment, setAssignment] = useState(null)
+  const [lastObstacleAction, setLastObstacleAction] = useState(null)
+  const [wsReady, setWsReady] = useState(false)
+
+  const wsRef = useRef(null)
 
   const apiBase = useMemo(() => DEFAULT_API_BASE, [])
 
@@ -60,29 +124,67 @@ function App() {
       return
     }
 
+    setWsReady(false)
     const wsBase = getWsBase(apiBase)
     const ws = new WebSocket(`${wsBase}/ws`)
+    wsRef.current = ws
 
     ws.addEventListener('open', () => {
+      setWsReady(true)
+      setJoinError('')
       const role = hostKey ? 'host' : 'participant'
       const token = hostKey || displayToken
       ws.send(JSON.stringify({ type: 'join', roomId, role, token }))
     })
 
     ws.addEventListener('message', (event) => {
-      try {
-        const message = JSON.parse(event.data)
-        if (message.type === 'room_state') {
-          setParticipantCount(message.participantCount || 0)
-          setReadyCount(message.readyCount || 0)
-        }
-      } catch {
+      const message = safeParseJson(event.data)
+      if (!message || !message.type) {
         return
+      }
+
+      if (message.type === 'room_state') {
+        setParticipantCount(message.participantCount || 0)
+        setReadyCount(message.readyCount || 0)
+        return
+      }
+
+      if (message.type === 'game_started') {
+        const candidates = Array.isArray(message.candidates) ? message.candidates : []
+        const assignments = message.assignments || {}
+        setGameData({ candidates, assignments })
+        setLastObstacleAction(null)
+        if (!hostKey) {
+          setAssignment(assignments[participantId] || null)
+        }
+        setView('game')
+        return
+      }
+
+      if (message.type === 'obstacle_action') {
+        setLastObstacleAction({
+          obstacleId: message.obstacleId,
+          action: message.action || 'tap',
+          receivedAt: Date.now(),
+        })
       }
     })
 
-    return () => ws.close()
-  }, [apiBase, displayToken, hostKey, roomId])
+    ws.addEventListener('close', () => {
+      setWsReady(false)
+      if (wsRef.current === ws) {
+        wsRef.current = null
+      }
+    })
+
+    ws.addEventListener('error', () => {
+      setWsReady(false)
+    })
+
+    return () => {
+      ws.close()
+    }
+  }, [apiBase, displayToken, hostKey, participantId, roomId])
 
   const handleStartHost = async () => {
     setIsBusy(true)
@@ -196,6 +298,40 @@ function App() {
     setJoinUrl('')
     setQrDataUrl('')
     setJoinError('')
+    setGameData(null)
+    setAssignment(null)
+    setLastObstacleAction(null)
+    setWsReady(false)
+  }
+
+  const handleCandidateBlur = () => {
+    setCandidateText((current) => normalizeCandidateText(current))
+  }
+
+  const handleStartGame = () => {
+    const candidates = expandCandidateList(candidateText)
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      setJoinError('Connection not ready yet. Please try again.')
+      return
+    }
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'start_game',
+        candidates,
+      })
+    )
+  }
+
+  const handleControllerAction = () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return
+    }
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'obstacle_action',
+        action: 'tap',
+      })
+    )
   }
 
   return (
@@ -239,15 +375,26 @@ function App() {
           readyCount={readyCount}
           joinUrl={joinUrl}
           qrDataUrl={qrDataUrl}
-          onStart={() => setView('game')}
+          candidateText={candidateText}
+          onCandidateChange={setCandidateText}
+          onCandidateBlur={handleCandidateBlur}
+          onStart={handleStartGame}
+          isWsReady={wsReady}
+          error={joinError}
         />
       )}
 
-      {view === 'game' && (
+      {view === 'game' && hostKey && (
         <GameScreen
-          participantCount={participantCount}
+          candidates={gameData?.candidates || []}
+          assignments={gameData?.assignments || {}}
+          lastObstacleAction={lastObstacleAction}
           onBack={() => setView('host')}
         />
+      )}
+
+      {view === 'game' && !hostKey && (
+        <ControllerScreen assignment={assignment} onAction={handleControllerAction} />
       )}
 
       {view === 'join' && (

@@ -1,4 +1,16 @@
-export function HostScreen({ roomCode, participantCount, readyCount, joinUrl, qrDataUrl, onStart }) {
+export function HostScreen({
+  roomCode,
+  participantCount,
+  readyCount,
+  joinUrl,
+  qrDataUrl,
+  candidateText,
+  onCandidateChange,
+  onCandidateBlur,
+  onStart,
+  isWsReady,
+  error
+}) {
   return (
     <div className="screen-container">
       <header className="text-center mb-24 animate-enter">
@@ -48,11 +60,41 @@ export function HostScreen({ roomCode, participantCount, readyCount, joinUrl, qr
         </div>
       </div>
 
-      <div className="mt-auto animate-slide-up" style={{ paddingTop: 'var(--space-24)', animationDelay: '0.3s' }}>
-        <button className="btn btn-primary" onClick={onStart}>
+      <div className="mt-auto animate-slide-up flex-row gap-16 items-end" style={{ paddingTop: 'var(--space-24)', animationDelay: '0.3s' }}>
+        <textarea
+          className="input-field"
+          value={candidateText}
+          onChange={(e) => onCandidateChange(e.target.value)}
+          onBlur={onCandidateBlur}
+          placeholder="추첨 대상 (쉼표/줄바꿈, *숫자 가능)"
+          style={{
+            height: '80px',
+            resize: 'none',
+            fontSize: '16px',
+            flex: 1,
+            padding: '12px',
+            lineHeight: '1.2'
+          }}
+        />
+        <button
+          className="btn btn-primary"
+          onClick={onStart}
+          disabled={!isWsReady}
+          style={{ width: 'auto', minWidth: '180px', height: '80px' }}
+        >
           START RACE
         </button>
       </div>
+      {error && (
+        <p className="text-caption text-center" style={{ marginTop: 'var(--space-12)', color: 'var(--color-error)' }}>
+          {error}
+        </p>
+      )}
+      {!error && !isWsReady && (
+        <p className="text-caption text-center" style={{ marginTop: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
+          Connecting to the race server...
+        </p>
+      )}
     </div>
   )
 }

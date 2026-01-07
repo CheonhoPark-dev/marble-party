@@ -108,13 +108,20 @@ export function listParticipants(roomId) {
   if (!roomSet) {
     return []
   }
-  return Array.from(roomSet).map((participantId) => participants.get(participantId)).filter(Boolean)
+  return Array.from(roomSet)
+    .map((participantId) => participants.get(participantId))
+    .filter(Boolean)
 }
 
 export function getRoomStats(roomId) {
   const list = listParticipants(roomId)
   const readyCount = list.filter((participant) => participant.isReady).length
-  return { participantCount: list.length, readyCount }
+  const participants = list.map((participant) => ({
+    participantId: participant.participantId,
+    displayName: participant.displayName,
+    isReady: participant.isReady,
+  }))
+  return { participantCount: list.length, readyCount, participants }
 }
 
 export function cleanupParticipants() {

@@ -4,7 +4,7 @@ export function FeedbackModal({ onClose }) {
   const [step, setStep] = useState(1)
   const [complaint, setComplaint] = useState('')
 
-  const handleUnderstand = (value) => {
+  const handleUnderstand = () => {
     setStep(2)
   }
 

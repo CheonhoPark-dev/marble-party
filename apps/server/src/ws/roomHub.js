@@ -1,6 +1,34 @@
 import { WebSocketServer } from 'ws'
 import { getRoomById, updateRoomStatus } from '../store/room.js'
-import { getParticipantByToken, touchParticipant, getRoomStats } from '../store/participant.js'
+import { getParticipantByToken, listParticipants, touchParticipant, getRoomStats } from '../store/participant.js'
+
+const OBSTACLE_COLORS = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#A78BFA', '#34D399', '#F97316', '#38BDF8', '#F472B6']
+
+function normalizeCandidates(rawCandidates) {
+  if (!Array.isArray(rawCandidates)) {
+    return []
+  }
+  return rawCandidates
+    .map((candidate) => String(candidate ?? '').trim())
+    .filter(Boolean)
+}
+
+function buildAssignments(roomId) {
+  const participants = listParticipants(roomId)
+  const assignments = {}
+
+  participants.forEach((participant, index) => {
+    assignments[participant.participantId] = {
+      obstacleId: index,
+      color: OBSTACLE_COLORS[index % OBSTACLE_COLORS.length],
+      nickname: participant.displayName || `Player ${index + 1}`,
+    }
+  })
+
+
+
+  return assignments
+}
 
 function safeJsonParse(payload) {
   try {
@@ -14,6 +42,7 @@ export function attachRoomHub(server) {
   const wss = new WebSocketServer({ server, path: '/ws' })
   const rooms = new Map()
   const clients = new Map()
+  const roomAssignments = new Map()
 
   function getRoomClients(roomId) {
     let roomSet = rooms.get(roomId)
@@ -57,6 +86,7 @@ export function attachRoomHub(server) {
       roomSet.delete(ws)
       if (roomSet.size === 0) {
         rooms.delete(client.roomId)
+        roomAssignments.delete(client.roomId)
       }
     }
     clients.delete(ws)
@@ -95,7 +125,7 @@ export function attachRoomHub(server) {
     }
   }
 
-  function handleStartGame(ws) {
+  function handleStartGame(ws, message) {
     const client = clients.get(ws)
     if (!client || client.role !== 'host') {
       return
@@ -104,8 +134,20 @@ export function attachRoomHub(server) {
     if (!room) {
       return
     }
+
     updateRoomStatus(client.roomId, 'playing')
-    broadcastToRoom(client.roomId, { type: 'game_started', roomId: client.roomId })
+
+    const candidates = normalizeCandidates(message?.candidates)
+    const assignments = buildAssignments(client.roomId)
+    roomAssignments.set(client.roomId, assignments)
+
+    broadcastToRoom(client.roomId, {
+      type: 'game_started',
+      roomId: client.roomId,
+      candidates,
+      assignments,
+    })
+
     broadcastRoomState(client.roomId)
   }
 
@@ -118,11 +160,18 @@ export function attachRoomHub(server) {
     if (!room) {
       return
     }
+
+    const assignments = roomAssignments.get(client.roomId)
+    const assignment = assignments?.[client.participantId]
+    if (!assignment) {
+      return
+    }
+
     broadcastToRoom(client.roomId, {
       type: 'obstacle_action',
       roomId: client.roomId,
       participantId: client.participantId,
-      obstacleId: message?.obstacleId || null,
+      obstacleId: assignment.obstacleId,
       action: message?.action || 'tap',
     })
   }
@@ -140,7 +189,7 @@ export function attachRoomHub(server) {
       }
 
       if (message.type === 'start_game') {
-        handleStartGame(ws)
+        handleStartGame(ws, message)
         return
       }
 
