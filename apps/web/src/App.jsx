@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { HostScreen } from './components/HostScreen'
+import { GameScreen } from './components/GameScreen'
 import { JoinScreen } from './components/JoinScreen'
 import { WaitingScreen } from './components/WaitingScreen'
 import { RulesScreen } from './components/RulesScreen'
@@ -238,7 +239,14 @@ function App() {
           readyCount={readyCount}
           joinUrl={joinUrl}
           qrDataUrl={qrDataUrl}
-          onStart={() => alert('Start Game Logic (Not Implemented)')}
+          onStart={() => setView('game')}
+        />
+      )}
+
+      {view === 'game' && (
+        <GameScreen
+          participantCount={participantCount}
+          onBack={() => setView('host')}
         />
       )}
 

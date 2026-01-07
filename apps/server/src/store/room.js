@@ -66,6 +66,15 @@ export function getRoomByCode(roomCode) {
   return getRoomById(roomId)
 }
 
+export function updateRoomStatus(roomId, status) {
+  const room = getRoomById(roomId)
+  if (!room) {
+    return null
+  }
+  room.status = status
+  return room
+}
+
 export function closeRoom(roomId, hostKey) {
   const room = getRoomById(roomId)
   if (!room) {
