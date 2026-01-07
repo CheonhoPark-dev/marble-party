@@ -335,7 +335,7 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container${view === 'game' && hostKey ? ' app-container--game' : ''}`}>
       {view === 'home' && (
         <div className="screen-container justify-center">
           <div className="logo-container animate-enter">

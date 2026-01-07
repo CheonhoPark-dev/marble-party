@@ -85,6 +85,7 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       success: styles.getPropertyValue('--color-success').trim(),
       warning: styles.getPropertyValue('--color-warning').trim(),
       white: styles.getPropertyValue('--color-white').trim(),
+      muted: styles.getPropertyValue('--color-text-muted').trim(),
     }
 
       const Engine = Matter.Engine,
@@ -95,6 +96,9 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       Common = Matter.Common,
       Events = Matter.Events
 
+    const { width, height: viewHeight } = dimensions
+    const worldHeight = Math.max(viewHeight * 6, 2400)
+
     const engine = Engine.create()
     engineRef.current = engine
     engine.world.gravity.y = 1.2
@@ -103,18 +107,59 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       element: sceneRef.current,
       engine: engine,
       options: {
-        width: dimensions.width,
-        height: dimensions.height,
+        width,
+        height: viewHeight,
         background: 'transparent',
         wireframes: false,
         pixelRatio: window.devicePixelRatio
       }
     })
     renderRef.current = render
+    render.options.hasBounds = true
+    render.bounds.min.x = 0
+    render.bounds.max.x = width
+    render.bounds.min.y = 0
+    render.bounds.max.y = viewHeight
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
+    const camera = { currentY: viewHeight / 2 }
+    const cameraOffset = viewHeight * 0.25
+
+    const updateCamera = () => {
+      const bodies = Composite.allBodies(engine.world)
+      let leader = null
+
+      for (const body of bodies) {
+        if (!body.label || !body.label.startsWith('marble-')) {
+          continue
+        }
+        if (!leader || body.position.y > leader.position.y) {
+          leader = body
+        }
+      }
+
+      if (!leader) {
+        return
+      }
+
+      const minY = viewHeight / 2
+      const maxY = Math.max(minY, worldHeight - viewHeight / 2)
+      const targetY = clamp(leader.position.y + cameraOffset, minY, maxY)
+
+      camera.currentY += (targetY - camera.currentY) * 0.08
+      render.bounds.min.y = camera.currentY - viewHeight / 2
+      render.bounds.max.y = camera.currentY + viewHeight / 2
+      render.bounds.min.x = 0
+      render.bounds.max.x = width
+    }
 
     Events.on(render, 'afterRender', () => {
       const context = render.context
       const bodies = Composite.allBodies(engine.world)
+
+      if (render.options.hasBounds) {
+        Matter.Render.startViewTransform(render)
+      }
 
       context.font = "bold 14px sans-serif"
       context.textAlign = "center"
@@ -142,82 +187,195 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
           context.restore()
         }
       })
-    })
 
-    const { width, height } = dimensions
+      if (render.options.hasBounds) {
+        Matter.Render.endViewTransform(render)
+      }
+    })
     const wallThickness = 60
+    const wallHeight = worldHeight + viewHeight
     
     const wallOptions = { 
       isStatic: true, 
       render: { 
         fillStyle: theme.text, 
-        strokeStyle: theme.text,
+        strokeStyle: 'transparent',
         lineWidth: 0
       },
+      chamfer: { radius: 10 },
       friction: 0.5
     }
 
-    const ground = Bodies.rectangle(width / 2, height + 60, width, 160, wallOptions)
-    const leftWall = Bodies.rectangle(0 - wallThickness/2, height / 2, wallThickness, height * 4, wallOptions)
-    const rightWall = Bodies.rectangle(width + wallThickness/2, height / 2, wallThickness, height * 4, wallOptions)
+    const ground = Bodies.rectangle(width / 2, worldHeight + 100, width * 1.2, 200, wallOptions)
+    const leftWall = Bodies.rectangle(0 - wallThickness/2, worldHeight / 2, wallThickness, wallHeight, wallOptions)
+    const rightWall = Bodies.rectangle(width + wallThickness/2, worldHeight / 2, wallThickness, wallHeight, wallOptions)
 
     const obstacles = []
-    
-    const startY = height * 0.25
-    const endY = height * 0.85
-    const rows = 8
-    const rowSpacing = (endY - startY) / rows
-    
-    for (let i = 0; i < rows; i++) {
-        const y = startY + i * rowSpacing
-        const isOffset = i % 2 !== 0
-        const cols = isOffset ? 4 : 5
-        const rowWidth = width * 0.8
-        const spacingX = rowWidth / (cols - 1 || 1)
-        const startX = (width - rowWidth) / 2
-        
-        for (let j = 0; j < cols; j++) {
-            const x = startX + j * spacingX
-            
-            const isCircle = i % 3 === 0
-            
-            const obstacleStyle = {
-                isStatic: true,
-                render: {
-                    fillStyle: theme.text,
-                    strokeStyle: 'transparent',
-                },
-                angle: isCircle ? 0 : Math.PI / 4 
-            }
+    const terrain = []
+    let obstacleIndex = 0
 
-            let obstacle
-            if (isCircle) {
-                obstacle = Bodies.circle(x, y, 6, obstacleStyle)
-            } else {
-                obstacle = Bodies.rectangle(x, y, 14, 14, {
-                    ...obstacleStyle,
-                    chamfer: { radius: 2 }
-                })
-            }
-            
-            obstacle.customId = obstacles.length
-            obstacles.push(obstacle)
-        }
+    const pegStyle = {
+      isStatic: true,
+      render: {
+        fillStyle: theme.text,
+        strokeStyle: 'transparent',
+      },
+      friction: 0.02,
+      frictionStatic: 0
+    }
+
+    const addPegAt = (x, y) => {
+      const body = Bodies.circle(x, y, 6, pegStyle)
+      body.customId = obstacleIndex
+      body.isObstacle = true
+      body.obstacleSlot = obstacleIndex
+      obstacleIndex += 1
+      obstacles.push(body)
+    }
+
+    const startY = Math.max(viewHeight * 0.32, 160)
+    const endY = worldHeight - viewHeight * 0.4
+    const pathSpan = endY - startY
+    const maxHalfWidth = Math.max(0, width / 2 - 24)
+    const corridorHalfWidth = Math.min(maxHalfWidth, Math.max(width * 0.28, 110))
+    const maxAmplitude = Math.max(0, width / 2 - corridorHalfWidth - 24)
+    const wiggleAmplitude = Math.min(width * 0.2, maxAmplitude)
+    const wiggleCycles = 2.6
+
+    const pathXAt = (t) => {
+      const wave = Math.sin(t * Math.PI * 2 * wiggleCycles)
+      const wobble = Math.sin(t * Math.PI * 2 * (wiggleCycles * 2) + Math.PI / 3)
+      return width * 0.5 + wiggleAmplitude * (wave * 0.9 + wobble * 0.35)
+    }
+
+    const railStyle = {
+      isStatic: true,
+      render: {
+        fillStyle: theme.muted,
+        strokeStyle: 'transparent',
+        lineWidth: 0
+      },
+      chamfer: { radius: 5 },
+      friction: 0.02,
+      frictionStatic: 0
+    }
+    const railThickness = 20
+    const pointCount = Math.max(22, Math.floor(pathSpan / 180))
+    const pathPoints = []
+
+    for (let i = 0; i <= pointCount; i++) {
+      const t = i / pointCount
+      const y = startY + t * pathSpan
+      pathPoints.push({ x: pathXAt(t), y })
+    }
+
+    const segmentNormals = []
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const p1 = pathPoints[i]
+      const p2 = pathPoints[i + 1]
+      const dx = p2.x - p1.x
+      const dy = p2.y - p1.y
+      const length = Math.hypot(dx, dy) || 1
+      segmentNormals.push({ x: -dy / length, y: dx / length })
+    }
+
+    const pointNormals = pathPoints.map((_, index) => {
+      const prev = segmentNormals[index - 1]
+      const next = segmentNormals[index]
+      let nx = 0
+      let ny = 0
+      if (prev) {
+        nx += prev.x
+        ny += prev.y
+      }
+      if (next) {
+        nx += next.x
+        ny += next.y
+      }
+      if (!prev && next) {
+        nx = next.x
+        ny = next.y
+      }
+      if (prev && !next) {
+        nx = prev.x
+        ny = prev.y
+      }
+      const length = Math.hypot(nx, ny) || 1
+      return { x: nx / length, y: ny / length }
+    })
+
+    const addRailSegment = (p1, p2, normal, side) => {
+      const offset = corridorHalfWidth * side
+      const startX = p1.x + normal.x * offset
+      const startY = p1.y + normal.y * offset
+      const endX = p2.x + normal.x * offset
+      const endY = p2.y + normal.y * offset
+      const length = Math.hypot(endX - startX, endY - startY)
+      if (length === 0) {
+        return
+      }
+      const midX = (startX + endX) / 2
+      const midY = (startY + endY) / 2
+      terrain.push(Bodies.rectangle(midX, midY, length + railThickness * 1.5, railThickness, {
+        ...railStyle,
+        angle: Math.atan2(endY - startY, endX - startX)
+      }))
+    }
+
+    const addRailCap = (point, normal, side) => {
+      const offset = corridorHalfWidth * side
+      const cx = point.x + normal.x * offset
+      const cy = point.y + normal.y * offset
+      terrain.push(Bodies.circle(cx, cy, railThickness * 0.6, railStyle))
+    }
+
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const p1 = pathPoints[i]
+      const p2 = pathPoints[i + 1]
+      const normal = segmentNormals[i]
+      addRailSegment(p1, p2, normal, 1)
+      addRailSegment(p1, p2, normal, -1)
+    }
+
+    for (let i = 0; i < pathPoints.length; i++) {
+      const normal = pointNormals[i]
+      addRailCap(pathPoints[i], normal, 1)
+      addRailCap(pathPoints[i], normal, -1)
+    }
+
+    const rowSpacing = 140
+    const rows = Math.max(16, Math.floor(pathSpan / rowSpacing))
+    const pegOffset = corridorHalfWidth * 0.32
+
+    for (let i = 0; i <= rows; i++) {
+      const y = startY + i * rowSpacing
+      const t = Math.min(1, Math.max(0, (y - startY) / pathSpan))
+      const centerX = pathXAt(t)
+      const jitter = Common.random(-5, 5)
+      addPegAt(centerX - pegOffset + jitter, y)
+      addPegAt(centerX + pegOffset + jitter, y)
+
+      if (i % 3 === 0 && y + rowSpacing * 0.3 < endY) {
+        const centerJitter = Common.random(-10, 10)
+        addPegAt(centerX + centerJitter, y + rowSpacing * 0.3)
+      }
     }
     
     const funnelOptions = {
         isStatic: true,
         render: {
             fillStyle: theme.text,
-            strokeStyle: theme.text,
-            lineWidth: 2
+            strokeStyle: 'transparent',
+            lineWidth: 0
         },
+        chamfer: { radius: 10 },
         angle: Math.PI / 7,
         friction: 0.1
     }
     
-    const funnelLeft = Bodies.rectangle(width * 0.1, height * 0.15, width * 0.5, 20, funnelOptions)
-    const funnelRight = Bodies.rectangle(width * 0.9, height * 0.15, width * 0.5, 20, {
+    const funnelY = Math.max(viewHeight * 0.18, 120)
+    const funnelLeft = Bodies.rectangle(width * 0.1, funnelY, width * 0.5, 20, funnelOptions)
+    const funnelRight = Bodies.rectangle(width * 0.9, funnelY, width * 0.5, 20, {
         ...funnelOptions,
         angle: -Math.PI / 7
     })
@@ -228,8 +386,11 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
         rightWall, 
         funnelLeft, 
         funnelRight, 
+        ...terrain,
         ...obstacles
     ])
+
+    Events.on(engine, 'afterUpdate', updateCamera)
 
     Render.run(render)
     const runner = Runner.create()
@@ -237,6 +398,7 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
     Runner.run(runner, engine)
 
     return () => {
+      Events.off(engine, 'afterUpdate', updateCamera)
       Render.stop(render)
       Runner.stop(runner)
       if (render.canvas) render.canvas.remove()
