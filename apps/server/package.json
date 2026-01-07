@@ -1,0 +1,15 @@
+{
+  "name": "server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "@repo/internal-utils": "*",
+    "express": "^5.2.1",
+    "nanoid": "^5.1.6",
+    "qrcode": "^1.5.4",
+    "ws": "^8.19.0"
+  }
+}

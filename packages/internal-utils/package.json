@@ -1,0 +1,6 @@
+{
+  "name": "@repo/internal-utils",
+  "version": "0.0.0",
+  "main": "./src/index.js",
+  "private": true
+}
