@@ -3,6 +3,10 @@ import { getRoomById, updateRoomStatus } from '../store/room.js'
 import { getParticipantByToken, listParticipants, touchParticipant, getRoomStats } from '../store/participant.js'
 
 const OBSTACLE_COLORS = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#A78BFA', '#34D399', '#F97316', '#38BDF8', '#F472B6']
+const OBSTACLE_TYPES = ['bomb', 'normal', 'spinner', 'fan']
+const SPAWN_COOLDOWN_MS = 4000
+
+const pickRandom = (items) => items[Math.floor(Math.random() * items.length)]
 
 function normalizeCandidates(rawCandidates) {
   if (!Array.isArray(rawCandidates)) {
@@ -43,6 +47,7 @@ export function attachRoomHub(server) {
   const rooms = new Map()
   const clients = new Map()
   const roomAssignments = new Map()
+  const spawnCooldowns = new Map()
 
   function getRoomClients(roomId) {
     let roomSet = rooms.get(roomId)
@@ -167,12 +172,31 @@ export function attachRoomHub(server) {
       return
     }
 
+    const now = Date.now()
+    const cooldownKey = `${client.roomId}:${client.participantId}`
+    const nextAllowed = spawnCooldowns.get(cooldownKey) || 0
+    if (now < nextAllowed) {
+      ws.send(JSON.stringify({
+        type: 'spawn_cooldown',
+        participantId: client.participantId,
+        cooldownUntil: nextAllowed,
+      }))
+      return
+    }
+
+    const requestedType = message?.obstacleType
+    const obstacleType = OBSTACLE_TYPES.includes(requestedType)
+      ? requestedType
+      : pickRandom(OBSTACLE_TYPES)
+    const cooldownUntil = now + SPAWN_COOLDOWN_MS
+    spawnCooldowns.set(cooldownKey, cooldownUntil)
+
     broadcastToRoom(client.roomId, {
-      type: 'obstacle_action',
+      type: 'spawned_obstacle',
       roomId: client.roomId,
       participantId: client.participantId,
-      obstacleId: assignment.obstacleId,
-      action: message?.action || 'tap',
+      obstacleType,
+      cooldownUntil,
     })
   }
 

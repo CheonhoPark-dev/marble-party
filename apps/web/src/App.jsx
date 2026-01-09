@@ -103,8 +103,11 @@ function App() {
   const [candidateText, setCandidateText] = useState('')
   const [gameData, setGameData] = useState(null)
   const [assignment, setAssignment] = useState(null)
-  const [lastObstacleAction, setLastObstacleAction] = useState(null)
+  const [lastSpawnEvent, setLastSpawnEvent] = useState(null)
+  const [spawnCooldownUntil, setSpawnCooldownUntil] = useState(0)
   const [wsReady, setWsReady] = useState(false)
+
+
 
   const wsRef = useRef(null)
 
@@ -153,7 +156,8 @@ function App() {
         const candidates = Array.isArray(message.candidates) ? message.candidates : []
         const assignments = message.assignments || {}
         setGameData({ candidates, assignments })
-        setLastObstacleAction(null)
+        setLastSpawnEvent(null)
+        setSpawnCooldownUntil(0)
         if (!hostKey) {
           setAssignment(assignments[participantId] || null)
         }
@@ -161,12 +165,23 @@ function App() {
         return
       }
 
-      if (message.type === 'obstacle_action') {
-        setLastObstacleAction({
-          obstacleId: message.obstacleId,
-          action: message.action || 'tap',
+      if (message.type === 'spawned_obstacle') {
+        setLastSpawnEvent({
+          participantId: message.participantId,
+          obstacleType: message.obstacleType,
           receivedAt: Date.now(),
         })
+        if (message.participantId === participantId && typeof message.cooldownUntil === 'number') {
+          setSpawnCooldownUntil(message.cooldownUntil)
+        }
+        return
+      }
+
+      if (message.type === 'spawn_cooldown') {
+        if (message.participantId === participantId && typeof message.cooldownUntil === 'number') {
+          setSpawnCooldownUntil(message.cooldownUntil)
+        }
+        return
       }
     })
 
@@ -300,9 +315,11 @@ function App() {
     setJoinError('')
     setGameData(null)
     setAssignment(null)
-    setLastObstacleAction(null)
+    setLastSpawnEvent(null)
+    setSpawnCooldownUntil(0)
     setWsReady(false)
   }
+
 
   const handleCandidateBlur = () => {
     setCandidateText((current) => normalizeCandidateText(current))
@@ -388,14 +405,19 @@ function App() {
         <GameScreen
           candidates={gameData?.candidates || []}
           assignments={gameData?.assignments || {}}
-          lastObstacleAction={lastObstacleAction}
+          lastSpawnEvent={lastSpawnEvent}
           onBack={() => setView('host')}
         />
       )}
 
       {view === 'game' && !hostKey && (
-        <ControllerScreen assignment={assignment} onAction={handleControllerAction} />
+        <ControllerScreen
+          assignment={assignment}
+          cooldownUntil={spawnCooldownUntil}
+          onAction={handleControllerAction}
+        />
       )}
+
 
       {view === 'join' && (
         <JoinScreen

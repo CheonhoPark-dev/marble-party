@@ -1,13 +1,107 @@
 import { useEffect, useRef, useState } from 'react'
 import Matter from 'matter-js'
 
-export function GameScreen({ candidates = [], assignments = {}, lastObstacleAction, onBack }) {
+const CLOUD_COLUMN_WIDTH = 160
+const CLOUD_TOP_OFFSET_MAX = 96
+const CLOUD_BAND_MAX = 240
+const CLOUD_PADDING_MIN = 32
+const CLOUD_PADDING_MAX = 72
+const CLOUD_BOB_X = 10
+const CLOUD_BOB_Y = 6
+const CLOUD_DROP_OFFSET = 32
+const CLOUD_DROP_JITTER = 18
+const CLOUD_DROP_MIN_Y = 48
+
+const OBSTACLE_TTL = {
+  bomb: 2000,
+  normal: 3000,
+  spinner: 3000,
+  fan: 3000
+}
+
+
+
+
+const BOMB_BLAST_RADIUS = 160
+const BOMB_BLAST_FORCE = 0.0011
+
+const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
+const randomBetween = (min, max) => min + Math.random() * (max - min)
+const pickRandom = (items) => items[Math.floor(Math.random() * items.length)]
+
+const getCloudLayout = (bounds, count) => {
+  if (!bounds || count <= 0) {
+    return null
+  }
+  const viewWidth = bounds.max.x - bounds.min.x
+  const viewHeight = bounds.max.y - bounds.min.y
+  const maxColumns = Math.max(1, Math.floor(viewWidth / CLOUD_COLUMN_WIDTH))
+  const columns = Math.min(count, maxColumns)
+  const rows = Math.max(1, Math.ceil(count / columns))
+  const padding = clamp(viewWidth * 0.08, CLOUD_PADDING_MIN, CLOUD_PADDING_MAX)
+  const topOffset = clamp(viewHeight * 0.16, 56, CLOUD_TOP_OFFSET_MAX)
+  const bandHeight = Math.min(CLOUD_BAND_MAX, viewHeight * 0.32)
+  const rowSpacing = rows > 1 ? bandHeight / (rows - 1) : 0
+  const usableWidth = Math.max(0, viewWidth - padding * 2)
+  return {
+    viewWidth,
+    viewHeight,
+    columns,
+    rows,
+    padding,
+    topOffset,
+    bandHeight,
+    rowSpacing,
+    usableWidth
+  }
+}
+
+const getCloudBasePosition = (layout, bounds, index) => {
+  if (!layout || !bounds) {
+    return { x: 0, y: 0 }
+  }
+  const col = layout.columns === 1 ? 0 : index % layout.columns
+  const row = Math.floor(index / layout.columns)
+  const ratio = layout.columns === 1 ? 0.5 : (col + 0.5) / layout.columns
+  const baseX = bounds.min.x + layout.padding + layout.usableWidth * ratio
+  const baseY = bounds.min.y + layout.topOffset + row * layout.rowSpacing
+  return { x: baseX, y: baseY }
+}
+
+export function GameScreen({
+  candidates = [],
+  assignments = {},
+  lastSpawnEvent,
+  onBack
+}) {
   const sceneRef = useRef(null)
   const engineRef = useRef(null)
   const renderRef = useRef(null)
   const runnerRef = useRef(null)
   const spawnedRef = useRef(0)
+  const leaderRef = useRef(null)
+  const leaderPositionRef = useRef(null)
+  const cloudsRef = useRef(new Map())
+  const obstacleTimersRef = useRef(new Set())
+  const windFieldsRef = useRef([])
+  const spawnObstacleRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+
+
+  const registerTimer = (timerId) => {
+    obstacleTimersRef.current.add(timerId)
+  }
+
+  const clearObstacleTimers = () => {
+    obstacleTimersRef.current.forEach((timerId) => clearTimeout(timerId))
+    obstacleTimersRef.current.clear()
+  }
+
+
+
+
+
+
 
   useEffect(() => {
     if (!engineRef.current) return
@@ -17,45 +111,118 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
     }
 
     const bodies = Matter.Composite.allBodies(engineRef.current.world)
-    const assignedList = Object.values(assignments)
 
     bodies.forEach((body) => {
-      if (!body.isObstacle) {
+      if (!body.isSpawnedObstacle) {
         return
       }
 
-      const assignment = assignedList[body.obstacleSlot]
+      const assignment = assignments?.[body.obstacleOwnerId]
 
       if (assignment) {
-        body.render.fillStyle = assignment.color
         body.obstacleLabel = assignment.nickname
-        body.obstacleId = assignment.obstacleId
-        body.isAssigned = true
+        body.obstacleOwnerColor = assignment.color
+        if (body.render) {
+          body.render.strokeStyle = assignment.color
+        }
       } else {
-        body.render.fillStyle = theme.text
         body.obstacleLabel = null
-        body.obstacleId = null
-        body.isAssigned = false
+        body.obstacleOwnerColor = null
+        if (body.render) {
+          body.render.strokeStyle = theme.text
+        }
       }
     })
   }, [assignments, dimensions])
 
   useEffect(() => {
-    if (!engineRef.current || !lastObstacleAction) return
-    
-    const { obstacleId } = lastObstacleAction
-    const bodies = Matter.Composite.allBodies(engineRef.current.world)
-    const targetBody = bodies.find(b => b.customId === obstacleId)
-    
-    if (targetBody) {
-       Matter.Body.translate(targetBody, { x: 0, y: -5 })
-       setTimeout(() => {
-         if (targetBody && targetBody.parent) { 
-            Matter.Body.translate(targetBody, { x: 0, y: 5 })
-         }
-       }, 50)
+    if (!renderRef.current) return
+
+    const bounds = renderRef.current.bounds
+    const clouds = cloudsRef.current
+    const entries = Object.entries(assignments || {})
+    const nextIds = new Set(entries.map(([participantId]) => participantId))
+
+    for (const [participantId] of clouds) {
+      if (!nextIds.has(participantId)) {
+        clouds.delete(participantId)
+      }
     }
-  }, [lastObstacleAction])
+
+    const ordered = entries.sort(([, a], [, b]) => (a?.obstacleId ?? 0) - (b?.obstacleId ?? 0))
+    const layout = getCloudLayout(bounds, ordered.length)
+
+    ordered.forEach(([participantId, assignment], index) => {
+      const existing = clouds.get(participantId)
+      const basePosition = layout
+        ? getCloudBasePosition(layout, bounds, index)
+        : { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }
+
+      if (existing) {
+        existing.color = assignment.color
+        existing.nickname = assignment.nickname
+        existing.orderIndex = index
+        if (existing.bobPhase == null) {
+          existing.bobPhase = Math.random() * Math.PI * 2
+        }
+        if (existing.bobSpeed == null) {
+          existing.bobSpeed = randomBetween(0.85, 1.2)
+        }
+        if (existing.spawnJitter == null) {
+          existing.spawnJitter = randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)
+        }
+        return
+      }
+
+      clouds.set(participantId, {
+        id: participantId,
+        x: basePosition.x,
+        y: basePosition.y,
+        roamX: basePosition.x,
+        roamY: basePosition.y,
+        roamTargetX: null,
+        roamTargetY: null,
+        roamSpeed: randomBetween(10.0, 14.0),
+        color: assignment.color,
+        nickname: assignment.nickname,
+        orderIndex: index,
+        bobPhase: Math.random() * Math.PI * 2,
+        bobSpeed: randomBetween(0.85, 1.2),
+        spawnJitter: randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)
+      })
+    })
+  }, [assignments, dimensions])
+
+  useEffect(() => {
+    if (!lastSpawnEvent || !spawnObstacleRef.current || !renderRef.current) {
+      return
+    }
+
+    const { participantId, obstacleType } = lastSpawnEvent
+    const cloud = cloudsRef.current.get(participantId)
+    const bounds = renderRef.current.bounds
+    const viewHeight = bounds.max.y - bounds.min.y
+    const fallbackX = (bounds.min.x + bounds.max.x) / 2
+    const fallbackY = bounds.min.y + Math.min(140, viewHeight * 0.2)
+    const spawnX = clamp(
+      (cloud?.x ?? fallbackX) + (cloud?.spawnJitter ?? randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)),
+      bounds.min.x + 40,
+      bounds.max.x - 40
+    )
+    const spawnY = clamp(
+      (cloud?.y ?? fallbackY) + CLOUD_DROP_OFFSET,
+      bounds.min.y + CLOUD_DROP_MIN_Y,
+      bounds.min.y + Math.min(220, viewHeight * 0.35)
+    )
+
+    spawnObstacleRef.current({
+      x: spawnX,
+      y: spawnY,
+      participantId,
+      obstacleType: obstacleType || pickRandom(Object.keys(OBSTACLE_TTL))
+    })
+  }, [lastSpawnEvent])
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -93,7 +260,7 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       Runner = Matter.Runner,
       Bodies = Matter.Bodies,
       Composite = Matter.Composite,
-      Common = Matter.Common,
+      Constraint = Matter.Constraint,
       Events = Matter.Events
 
     const { width, height: viewHeight } = dimensions
@@ -101,7 +268,7 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
 
     const engine = Engine.create()
     engineRef.current = engine
-    engine.world.gravity.y = 1.2
+    engine.world.gravity.y = 0.6
 
     const render = Render.create({
       element: sceneRef.current,
@@ -121,8 +288,7 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
     render.bounds.min.y = 0
     render.bounds.max.y = viewHeight
 
-    const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
-    const camera = { currentY: viewHeight / 2 }
+    const camera = { currentY: viewHeight / 2, deltaY: 0 }
     const cameraOffset = viewHeight * 0.25
 
     const updateCamera = () => {
@@ -138,7 +304,10 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
         }
       }
 
+      leaderRef.current = leader
+
       if (!leader) {
+        camera.deltaY = 0
         return
       }
 
@@ -146,12 +315,166 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       const maxY = Math.max(minY, worldHeight - viewHeight / 2)
       const targetY = clamp(leader.position.y + cameraOffset, minY, maxY)
 
+      const prevY = camera.currentY
       camera.currentY += (targetY - camera.currentY) * 0.08
+      camera.deltaY = camera.currentY - prevY
+
       render.bounds.min.y = camera.currentY - viewHeight / 2
       render.bounds.max.y = camera.currentY + viewHeight / 2
       render.bounds.min.x = 0
       render.bounds.max.x = width
     }
+
+    const updateClouds = () => {
+      if (!renderRef.current) {
+        return
+      }
+      const bounds = renderRef.current.bounds
+
+      const leader = leaderRef.current
+      let deltaY = camera.deltaY || 0
+      if (leader) {
+        const prevY = leaderPositionRef.current
+        deltaY = typeof prevY === 'number' ? leader.position.y - prevY : 0
+        leaderPositionRef.current = leader.position.y
+      } else {
+        leaderPositionRef.current = null
+      }
+
+      const clouds = cloudsRef.current
+      if (!clouds.size) {
+        return
+      }
+
+      const now = Date.now()
+      const viewHeight = bounds.max.y - bounds.min.y
+      const CLOUD_RADIUS = 30
+      const safePadX = CLOUD_RADIUS + CLOUD_BOB_X
+      const safePadY = CLOUD_RADIUS + CLOUD_BOB_Y
+
+      const targetPad = 60
+
+      const skyCenterY = leader ? leader.position.y : (bounds.min.y + bounds.max.y) / 2
+      const bandHeight = Math.min(320, viewHeight * 0.5)
+      const halfBand = bandHeight / 2
+
+      const bandMinY = skyCenterY - halfBand
+      const bandMaxY = skyCenterY + halfBand
+
+      const skyMinX = bounds.min.x + targetPad
+      const skyMaxX = bounds.max.x - targetPad
+      const worldMinY = targetPad
+      const worldMaxY = worldHeight - targetPad
+      const skyMinY = clamp(bandMinY, worldMinY, worldMaxY)
+      const skyMaxY = clamp(bandMaxY, worldMinY, worldMaxY)
+
+      const safeMinX = Math.min(skyMinX, skyMaxX)
+      const safeMaxX = Math.max(skyMinX, skyMaxX)
+      let safeMinY = Math.min(skyMinY, skyMaxY)
+      let safeMaxY = Math.max(skyMinY, skyMaxY)
+      if (safeMinY > safeMaxY) {
+        const centerY = (bounds.min.y + bounds.max.y) / 2
+        safeMinY = centerY
+        safeMaxY = centerY
+      }
+
+      for (const cloud of clouds.values()) {
+        if (cloud.roamX == null) {
+            cloud.roamX = cloud.x
+            cloud.roamY = cloud.y
+            cloud.roamSpeed = randomBetween(6.5, 9.0)
+        }
+
+        cloud.roamY += deltaY
+        if (cloud.roamTargetY != null) {
+          cloud.roamTargetY += deltaY
+        }
+
+        const targetInvalid = cloud.roamTargetX == null ||
+            cloud.roamTargetX < skyMinX || cloud.roamTargetX > skyMaxX ||
+            cloud.roamTargetY < skyMinY || cloud.roamTargetY > skyMaxY
+
+        if (targetInvalid) {
+            cloud.roamTargetX = randomBetween(skyMinX, skyMaxX)
+            cloud.roamTargetY = randomBetween(skyMinY, skyMaxY)
+        }
+
+        const dx = cloud.roamTargetX - cloud.roamX
+        const dy = cloud.roamTargetY - cloud.roamY
+        const dist = Math.hypot(dx, dy)
+
+        if (dist < 24) {
+            cloud.roamTargetX = randomBetween(skyMinX, skyMaxX)
+            cloud.roamTargetY = randomBetween(skyMinY, skyMaxY)
+        } else {
+            cloud.roamX += (dx / dist) * cloud.roamSpeed
+            cloud.roamY += (dy / dist) * cloud.roamSpeed
+        }
+
+        const bobSpeed = cloud.bobSpeed ?? 1
+        const bobX = Math.sin((now / 900) * bobSpeed + cloud.bobPhase) * CLOUD_BOB_X
+        const bobY = Math.cos((now / 760) * bobSpeed + cloud.bobPhase) * CLOUD_BOB_Y
+
+        const hardMinX = bounds.min.x + safePadX - bobX
+        const hardMaxX = bounds.max.x - safePadX - bobX
+        const hardMinY = safePadY - bobY
+        const hardMaxY = worldHeight - safePadY - bobY
+
+        cloud.roamX = clamp(cloud.roamX, hardMinX, hardMaxX)
+        
+        let nextY = clamp(cloud.roamY, bandMinY, bandMaxY)
+        cloud.roamY = clamp(nextY, hardMinY, hardMaxY)
+        
+        cloud.x = cloud.roamX + bobX
+        cloud.y = cloud.roamY + bobY
+      }
+    }
+
+    const applyWindForces = () => {
+      const windFields = windFieldsRef.current
+      if (!windFields.length) {
+        return
+      }
+      const now = Date.now()
+
+      for (let i = windFields.length - 1; i >= 0; i -= 1) {
+        if (windFields[i].expiresAt <= now) {
+          windFields.splice(i, 1)
+        }
+      }
+
+      if (!windFields.length) {
+        return
+      }
+
+      const bodies = Composite.allBodies(engine.world)
+
+      windFields.forEach((field) => {
+        const minX = field.x - field.width / 2
+        const maxX = field.x + field.width / 2
+        const minY = field.y - field.height / 2
+        const maxY = field.y + field.height / 2
+
+        bodies.forEach((body) => {
+          if (!body.label || !body.label.startsWith('marble-')) {
+            return
+          }
+          const { x, y } = body.position
+          if (x < minX || x > maxX || y < minY || y > maxY) {
+            return
+          }
+          Matter.Body.applyForce(body, body.position, { x: field.strength, y: 0 })
+        })
+      })
+    }
+
+    const updateWorld = (event) => {
+      updateCamera()
+      updateClouds()
+      applyWindForces()
+    }
+
+    Events.on(engine, 'afterUpdate', updateWorld)
 
     Events.on(render, 'afterRender', () => {
       const context = render.context
@@ -181,6 +504,7 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
           
           context.save()
           context.font = "bold 10px sans-serif"
+          context.strokeStyle = body.obstacleOwnerColor || theme.surface
           context.strokeText(text, x, y - 14)
           context.fillStyle = theme.white
           context.fillText(text, x, y - 14)
@@ -188,44 +512,85 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
         }
       })
 
+      const clouds = cloudsRef.current
+      if (clouds.size) {
+        context.save()
+        context.textAlign = 'center'
+        context.textBaseline = 'middle'
+        context.font = '700 11px sans-serif'
+        clouds.forEach((cloud) => {
+          const baseX = cloud.x
+          const baseY = cloud.y
+          const fill = 'rgba(255,255,255,0.85)'
+          context.fillStyle = fill
+          context.strokeStyle = cloud.color || theme.secondary
+          context.lineWidth = 2
+
+          context.beginPath()
+          context.arc(baseX - 14, baseY, 12, 0, Math.PI * 2)
+          context.arc(baseX, baseY - 8, 16, 0, Math.PI * 2)
+          context.arc(baseX + 16, baseY, 12, 0, Math.PI * 2)
+          context.closePath()
+          context.fill()
+          context.stroke()
+
+          if (cloud.nickname) {
+            context.fillStyle = theme.text
+            context.fillText(cloud.nickname, baseX, baseY + 18)
+          }
+        })
+        context.restore()
+      }
+
       if (render.options.hasBounds) {
         Matter.Render.endViewTransform(render)
       }
     })
-    const wallThickness = 60
-    const wallHeight = worldHeight + viewHeight
-    
+    const wallThickness = 56
     const wallOptions = { 
       isStatic: true, 
       render: { 
         fillStyle: theme.text, 
-        strokeStyle: 'transparent',
-        lineWidth: 0
+        strokeStyle: theme.white,
+        lineWidth: 3
       },
-      chamfer: { radius: 10 },
-      friction: 0.5
+      chamfer: { radius: 12 },
+      friction: 0.4
     }
 
-    const ground = Bodies.rectangle(width / 2, worldHeight + 100, width * 1.2, 200, wallOptions)
-    const leftWall = Bodies.rectangle(0 - wallThickness/2, worldHeight / 2, wallThickness, wallHeight, wallOptions)
-    const rightWall = Bodies.rectangle(width + wallThickness/2, worldHeight / 2, wallThickness, wallHeight, wallOptions)
+    const topY = 0
+    const goalWidth = Math.max(90, width * 0.12)
+    const goalY = worldHeight - 80
+    const goalLeftX = width * 0.5 - goalWidth * 0.5
+    const goalRightX = width * 0.5 + goalWidth * 0.5
+
+    const buildWall = (from, to) => {
+      const dx = to.x - from.x
+      const dy = to.y - from.y
+      const length = Math.hypot(dx, dy)
+      const angle = Math.atan2(dy, dx)
+      return Bodies.rectangle((from.x + to.x) / 2, (from.y + to.y) / 2, length, wallThickness, {
+        ...wallOptions,
+        angle
+      })
+    }
+
+    const leftWall = buildWall({ x: 0, y: topY }, { x: goalLeftX, y: goalY })
+    const rightWall = buildWall({ x: width, y: topY }, { x: goalRightX, y: goalY })
+
+    const floorY = goalY + wallThickness / 2
+    const leftFloorWidth = Math.max(0, goalLeftX)
+    const rightFloorWidth = Math.max(0, width - goalRightX)
+    const floorLeft = Bodies.rectangle(leftFloorWidth / 2, floorY, leftFloorWidth, wallThickness, wallOptions)
+    const floorRight = Bodies.rectangle(goalRightX + rightFloorWidth / 2, floorY, rightFloorWidth, wallThickness, wallOptions)
 
     const obstacles = []
     const terrain = []
+    const constraints = []
     let obstacleIndex = 0
+    const obstacleRestitution = 0.8
 
-    const pegStyle = {
-      isStatic: true,
-      render: {
-        fillStyle: theme.text,
-        strokeStyle: 'transparent',
-      },
-      friction: 0.02,
-      frictionStatic: 0
-    }
-
-    const addPegAt = (x, y) => {
-      const body = Bodies.circle(x, y, 6, pegStyle)
+    const registerObstacle = (body) => {
       body.customId = obstacleIndex
       body.isObstacle = true
       body.obstacleSlot = obstacleIndex
@@ -233,172 +598,242 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       obstacles.push(body)
     }
 
-    const startY = Math.max(viewHeight * 0.32, 160)
-    const endY = worldHeight - viewHeight * 0.4
-    const pathSpan = endY - startY
-    const maxHalfWidth = Math.max(0, width / 2 - 24)
-    const corridorHalfWidth = Math.min(maxHalfWidth, Math.max(width * 0.28, 110))
-    const maxAmplitude = Math.max(0, width / 2 - corridorHalfWidth - 24)
-    const wiggleAmplitude = Math.min(width * 0.2, maxAmplitude)
-    const wiggleCycles = 2.6
-
-    const pathXAt = (t) => {
-      const wave = Math.sin(t * Math.PI * 2 * wiggleCycles)
-      const wobble = Math.sin(t * Math.PI * 2 * (wiggleCycles * 2) + Math.PI / 3)
-      return width * 0.5 + wiggleAmplitude * (wave * 0.9 + wobble * 0.35)
+    const leftEdgeAt = (y) => {
+      const t = clamp((y - topY) / (goalY - topY), 0, 1)
+      return goalLeftX * t
     }
 
-    const railStyle = {
-      isStatic: true,
-      render: {
-        fillStyle: theme.muted,
-        strokeStyle: 'transparent',
-        lineWidth: 0
-      },
-      chamfer: { radius: 5 },
-      friction: 0.02,
-      frictionStatic: 0
-    }
-    const railThickness = 20
-    const pointCount = Math.max(22, Math.floor(pathSpan / 180))
-    const pathPoints = []
-
-    for (let i = 0; i <= pointCount; i++) {
-      const t = i / pointCount
-      const y = startY + t * pathSpan
-      pathPoints.push({ x: pathXAt(t), y })
+    const rightEdgeAt = (y) => {
+      const t = clamp((y - topY) / (goalY - topY), 0, 1)
+      return width + (goalRightX - width) * t
     }
 
-    const segmentNormals = []
-    for (let i = 0; i < pathPoints.length - 1; i++) {
-      const p1 = pathPoints[i]
-      const p2 = pathPoints[i + 1]
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-      const length = Math.hypot(dx, dy) || 1
-      segmentNormals.push({ x: -dy / length, y: dx / length })
+    const gridCols = 5
+    const gridRows = 8
+    const gridTop = Math.max(viewHeight * 0.25, 140)
+    const gridBottom = Math.max(gridTop + 200, goalY - 180)
+    const rowHeight = (gridBottom - gridTop) / gridRows
+    const jitterRange = 16
+    const angleJitter = (Math.PI / 180) * 12
+
+    for (let row = 0; row < gridRows; row++) {
+      const cellY = gridTop + rowHeight * (row + 0.5)
+      const leftEdge = leftEdgeAt(cellY) + 36
+      const rightEdge = rightEdgeAt(cellY) - 36
+      const usableWidth = rightEdge - leftEdge
+      if (usableWidth <= 140) {
+        continue
+      }
+      const cellWidth = usableWidth / gridCols
+
+      for (let col = 0; col < gridCols; col++) {
+        const baseX = leftEdge + cellWidth * (col + 0.5)
+        const jitterX = (Math.random() * 2 - 1) * jitterRange
+        const jitterY = (Math.random() * 2 - 1) * jitterRange
+        const x = clamp(baseX + jitterX, leftEdge + 12, rightEdge - 12)
+        const y = cellY + jitterY
+        const roll = Math.random()
+
+        if (roll < 0.34) {
+          const slopeLength = clamp(cellWidth * 0.9, 70, 140)
+          const slopeHeight = 12
+          const baseAngle = Math.random() < 0.5 ? Math.PI / 4 : -Math.PI / 4
+          const slopeAngle = baseAngle + (Math.random() * 2 - 1) * angleJitter
+          const slope = Bodies.rectangle(x, y, slopeLength, slopeHeight, {
+            isStatic: true,
+            restitution: obstacleRestitution,
+            friction: 0.02,
+            frictionStatic: 0,
+            chamfer: { radius: 4 },
+            render: {
+              fillStyle: theme.text,
+              strokeStyle: 'transparent'
+            },
+            angle: slopeAngle
+          })
+          registerObstacle(slope)
+        } else if (roll < 0.67) {
+          const pegCount = Math.random() < 0.5 ? 1 : 2
+          for (let i = 0; i < pegCount; i++) {
+            const pegX = clamp(x + (Math.random() * 2 - 1) * 10, leftEdge + 10, rightEdge - 10)
+            const pegY = y + (Math.random() * 2 - 1) * 10
+            const peg = Bodies.circle(pegX, pegY, 6, {
+              isStatic: true,
+              restitution: obstacleRestitution,
+              friction: 0.02,
+              frictionStatic: 0,
+              render: {
+                fillStyle: theme.text,
+                strokeStyle: 'transparent'
+              }
+            })
+            registerObstacle(peg)
+          }
+        } else {
+          const spinnerLength = clamp(cellWidth * 0.85, 80, 150)
+          const spinner = Bodies.rectangle(x, y, spinnerLength, 12, {
+            restitution: obstacleRestitution,
+            friction: 0.01,
+            frictionAir: 0.002,
+            density: 0.002,
+            render: {
+              fillStyle: theme.secondary,
+              strokeStyle: 'transparent'
+            }
+          })
+          spinner.angularVelocity = (Math.random() * 2 - 1) * 0.4
+          registerObstacle(spinner)
+          constraints.push(Constraint.create({
+            pointA: { x, y },
+            bodyB: spinner,
+            pointB: { x: 0, y: 0 },
+            length: 0,
+            stiffness: 1
+          }))
+        }
+      }
     }
 
-    const pointNormals = pathPoints.map((_, index) => {
-      const prev = segmentNormals[index - 1]
-      const next = segmentNormals[index]
-      let nx = 0
-      let ny = 0
-      if (prev) {
-        nx += prev.x
-        ny += prev.y
-      }
-      if (next) {
-        nx += next.x
-        ny += next.y
-      }
-      if (!prev && next) {
-        nx = next.x
-        ny = next.y
-      }
-      if (prev && !next) {
-        nx = prev.x
-        ny = prev.y
-      }
-      const length = Math.hypot(nx, ny) || 1
-      return { x: nx / length, y: ny / length }
-    })
-
-    const addRailSegment = (p1, p2, normal, side) => {
-      const offset = corridorHalfWidth * side
-      const startX = p1.x + normal.x * offset
-      const startY = p1.y + normal.y * offset
-      const endX = p2.x + normal.x * offset
-      const endY = p2.y + normal.y * offset
-      const length = Math.hypot(endX - startX, endY - startY)
-      if (length === 0) {
+    const spawnObstacle = ({ x, y, participantId, obstacleType }) => {
+      if (!engineRef.current) {
         return
       }
-      const midX = (startX + endX) / 2
-      const midY = (startY + endY) / 2
-      terrain.push(Bodies.rectangle(midX, midY, length + railThickness * 1.5, railThickness, {
-        ...railStyle,
-        angle: Math.atan2(endY - startY, endX - startX)
-      }))
-    }
 
-    const addRailCap = (point, normal, side) => {
-      const offset = corridorHalfWidth * side
-      const cx = point.x + normal.x * offset
-      const cy = point.y + normal.y * offset
-      terrain.push(Bodies.circle(cx, cy, railThickness * 0.6, railStyle))
-    }
+      const type = obstacleType || 'normal'
+      const world = engineRef.current.world
+      let body = null
+      let constraint = null
+      const ttl = OBSTACLE_TTL[type] || 3000
 
-    for (let i = 0; i < pathPoints.length - 1; i++) {
-      const p1 = pathPoints[i]
-      const p2 = pathPoints[i + 1]
-      const normal = segmentNormals[i]
-      addRailSegment(p1, p2, normal, 1)
-      addRailSegment(p1, p2, normal, -1)
-    }
-
-    for (let i = 0; i < pathPoints.length; i++) {
-      const normal = pointNormals[i]
-      addRailCap(pathPoints[i], normal, 1)
-      addRailCap(pathPoints[i], normal, -1)
-    }
-
-    const rowSpacing = 140
-    const rows = Math.max(16, Math.floor(pathSpan / rowSpacing))
-    const pegOffset = corridorHalfWidth * 0.32
-
-    for (let i = 0; i <= rows; i++) {
-      const y = startY + i * rowSpacing
-      const t = Math.min(1, Math.max(0, (y - startY) / pathSpan))
-      const centerX = pathXAt(t)
-      const jitter = Common.random(-5, 5)
-      addPegAt(centerX - pegOffset + jitter, y)
-      addPegAt(centerX + pegOffset + jitter, y)
-
-      if (i % 3 === 0 && y + rowSpacing * 0.3 < endY) {
-        const centerJitter = Common.random(-10, 10)
-        addPegAt(centerX + centerJitter, y + rowSpacing * 0.3)
-      }
-    }
-    
-    const funnelOptions = {
-        isStatic: true,
-        render: {
+      if (type === 'bomb') {
+        body = Bodies.circle(x, y, 18, {
+          isStatic: true,
+          restitution: 0.4,
+          render: {
+            fillStyle: theme.warning,
+            strokeStyle: theme.text,
+            lineWidth: 3
+          }
+        })
+      } else if (type === 'spinner') {
+        const spinnerLength = randomBetween(110, 140)
+        body = Bodies.rectangle(x, y, spinnerLength, 14, {
+          friction: 0.02,
+          frictionAir: 0.006,
+          density: 0.004,
+          render: {
+            fillStyle: theme.secondary,
+            strokeStyle: theme.text,
+            lineWidth: 3
+          }
+        })
+        body.angularVelocity = (Math.random() * 2 - 1) * 0.8
+        constraint = Constraint.create({
+          pointA: { x, y },
+          bodyB: body,
+          pointB: { x: 0, y: 0 },
+          length: 0,
+          stiffness: 1
+        })
+      } else if (type === 'fan') {
+        body = Bodies.rectangle(x, y, 94, 24, {
+          isStatic: true,
+          render: {
+            fillStyle: theme.success,
+            strokeStyle: theme.text,
+            lineWidth: 3
+          }
+        })
+        const bounds = renderRef.current?.bounds
+        const centerX = bounds ? (bounds.min.x + bounds.max.x) / 2 : x
+        const direction = x < centerX ? -1 : 1
+        windFieldsRef.current.push({
+          x,
+          y,
+          width: 260,
+          height: 180,
+          strength: 0.003 * direction,
+          expiresAt: Date.now() + ttl
+        })
+      } else {
+        const angle = randomBetween(-0.35, 0.35)
+        body = Bodies.rectangle(x, y, 100, 18, {
+          isStatic: true,
+          restitution: 0.9,
+          friction: 0.02,
+          chamfer: { radius: 6 },
+          render: {
             fillStyle: theme.text,
-            strokeStyle: 'transparent',
-            lineWidth: 0
-        },
-        chamfer: { radius: 10 },
-        angle: Math.PI / 7,
-        friction: 0.1
+            strokeStyle: theme.white,
+            lineWidth: 2
+          },
+          angle
+        })
+      }
+
+      if (!body) {
+        return
+      }
+
+      body.isSpawnedObstacle = true
+      body.obstacleOwnerId = participantId
+      body.obstacleType = type
+      Composite.add(world, body)
+      if (constraint) {
+        Composite.add(world, constraint)
+      }
+
+      const timerId = setTimeout(() => {
+        if (type === 'bomb') {
+          const bodies = Composite.allBodies(world)
+          const radius = BOMB_BLAST_RADIUS
+          bodies.forEach((target) => {
+            if (!target.label || !target.label.startsWith('marble-')) {
+              return
+            }
+            const dx = target.position.x - x
+            const dy = target.position.y - y
+            const distance = Math.max(1, Math.hypot(dx, dy))
+            if (distance > radius) {
+              return
+            }
+            const strength = BOMB_BLAST_FORCE * (1 - distance / radius)
+            Matter.Body.applyForce(target, target.position, {
+              x: (dx / distance) * strength,
+              y: (dy / distance) * strength
+            })
+          })
+        }
+        Composite.remove(world, body)
+        if (constraint) {
+          Composite.remove(world, constraint)
+        }
+      }, ttl)
+
+      registerTimer(timerId)
     }
-    
-    const funnelY = Math.max(viewHeight * 0.18, 120)
-    const funnelLeft = Bodies.rectangle(width * 0.1, funnelY, width * 0.5, 20, funnelOptions)
-    const funnelRight = Bodies.rectangle(width * 0.9, funnelY, width * 0.5, 20, {
-        ...funnelOptions,
-        angle: -Math.PI / 7
-    })
+
+    spawnObstacleRef.current = spawnObstacle
 
     Composite.add(engine.world, [
-        ground, 
         leftWall, 
         rightWall, 
-        funnelLeft, 
-        funnelRight, 
+        floorLeft,
+        floorRight,
         ...terrain,
-        ...obstacles
+        ...obstacles,
+        ...constraints
     ])
-
-    Events.on(engine, 'afterUpdate', updateCamera)
-
+ 
     Render.run(render)
     const runner = Runner.create()
     runnerRef.current = runner
     Runner.run(runner, engine)
-
+ 
     return () => {
-      Events.off(engine, 'afterUpdate', updateCamera)
+      Events.off(engine, 'afterUpdate', updateWorld)
+      clearObstacleTimers()
+      windFieldsRef.current = []
       Render.stop(render)
       Runner.stop(runner)
       if (render.canvas) render.canvas.remove()
@@ -411,6 +846,8 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
       }
     }
   }, [dimensions])
+
+
 
   useEffect(() => {
     if (!engineRef.current || dimensions.width === 0) return
@@ -457,10 +894,10 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
 
         const marble = Bodies.circle(x, y, size, {
           label: `marble-${labelId}`,
-          restitution: 0.6,
+          restitution: 0.5,
           friction: 0.005,
-          frictionAir: 0.001,
-          density: 0.05,
+          frictionAir: 0.015,
+          density: 0.035,
           render: {
             fillStyle: assignedColor,
             strokeStyle: theme.text,
@@ -509,27 +946,38 @@ export function GameScreen({ candidates = [], assignments = {}, lastObstacleActi
            </div>
         </div>
 
-        <div ref={sceneRef} style={{ flex: 1, width: '100%', height: '100%', minHeight: 0 }} />
+        <div
+          ref={sceneRef}
+          style={{
+            flex: 1,
+            width: '100%',
+            height: '100%',
+            minHeight: 0,
+            backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(242,230,216,0.95) 100%),
+              repeating-linear-gradient(0deg, rgba(28,26,26,0.06) 0px, rgba(28,26,26,0.06) 1px, transparent 1px, transparent 28px)`
+          }}
+        />
         
         <div style={{ 
           position: 'absolute', 
-          bottom: 32, 
-          left: 0, 
-          width: '100%', 
-          display: 'flex', 
-          justifyContent: 'center',
+          top: 24, 
+          right: 24, 
+          zIndex: 10,
           pointerEvents: 'none'
         }}>
             <button 
               className="btn btn-secondary" 
               style={{ 
                 pointerEvents: 'auto', 
-                minWidth: '200px',
-                borderWidth: 'var(--border-width-thick)',
-                boxShadow: 'var(--shadow-lg)',
-                fontWeight: 900,
-                fontSize: '20px',
-                letterSpacing: '-0.5px'
+                width: 'auto',
+                minWidth: '120px',
+                height: '40px',
+                padding: '0 14px',
+                borderWidth: 'var(--border-width)',
+                boxShadow: 'var(--shadow-sm)',
+                fontWeight: 800,
+                fontSize: '12px',
+                letterSpacing: '0.5px'
               }} 
               onClick={onBack}
             >
