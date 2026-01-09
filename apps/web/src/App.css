@@ -11,8 +11,19 @@
 
 .app-container--game {
   max-width: none;
-  padding: 0;
+  padding: var(--space-16);
   width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-stage {
+  width: min(100%, calc(100vh * var(--game-aspect)));
+  aspect-ratio: 9 / 16;
+  height: auto;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 @supports (-webkit-touch-callout: none) {

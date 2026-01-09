@@ -402,12 +402,14 @@ function App() {
       )}
 
       {view === 'game' && hostKey && (
-        <GameScreen
-          candidates={gameData?.candidates || []}
-          assignments={gameData?.assignments || {}}
-          lastSpawnEvent={lastSpawnEvent}
-          onBack={() => setView('host')}
-        />
+        <div className="game-stage">
+          <GameScreen
+            candidates={gameData?.candidates || []}
+            assignments={gameData?.assignments || {}}
+            lastSpawnEvent={lastSpawnEvent}
+            onBack={() => setView('host')}
+          />
+        </div>
       )}
 
       {view === 'game' && !hostKey && (
