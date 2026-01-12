@@ -26,34 +26,64 @@ const OBSTACLE_TTL = {
 const MAP_BLUEPRINT = {
   width: 960,
   height: 5600,
-  goalWidth: 0.12,
-  goalOffset: 90,
-  funnelStartY: 0.9,
+  wallThickness: 56,
+  floor: { y: 1, inset: 0.1 },
+  walls: {
+    left: [
+      { x: 0.32, y: 0.0 },
+      { x: 0.32, y: 0.08 },
+      { x: 0.34, y: 0.16 },
+      { x: 0.34, y: 0.26 },
+      { x: 0.2, y: 0.32 },
+      { x: 0.2, y: 0.44 },
+      { x: 0.4, y: 0.5 },
+      { x: 0.4, y: 0.62 },
+      { x: 0.26, y: 0.7 },
+      { x: 0.26, y: 0.82 },
+      { x: 0.4, y: 0.9 },
+      { x: 0.4, y: 1.0 }
+    ],
+    right: [
+      { x: 0.68, y: 0.0 },
+      { x: 0.68, y: 0.08 },
+      { x: 0.66, y: 0.16 },
+      { x: 0.66, y: 0.28 },
+      { x: 0.82, y: 0.36 },
+      { x: 0.82, y: 0.48 },
+      { x: 0.6, y: 0.56 },
+      { x: 0.6, y: 0.68 },
+      { x: 0.74, y: 0.76 },
+      { x: 0.74, y: 0.88 },
+      { x: 0.6, y: 0.96 },
+      { x: 0.6, y: 1.0 }
+    ],
+    internal: [
+      [
+        { x: 0.56, y: 0.46 },
+        { x: 0.7, y: 0.56 },
+        { x: 0.58, y: 0.7 }
+      ],
+      [
+        { x: 0.44, y: 0.68 },
+        { x: 0.3, y: 0.8 },
+        { x: 0.46, y: 0.92 }
+      ]
+    ]
+  },
   obstacles: [
-    { type: 'ramp', x: 0.28, y: 0.08, length: 0.62, angle: 0.26 },
-    { type: 'peg', x: 0.74, y: 0.12, radius: 0.008 },
-    { type: 'peg', x: 0.8, y: 0.15, radius: 0.008 },
-    { type: 'ramp', x: 0.72, y: 0.18, length: 0.6, angle: -0.26 },
-    { type: 'kicker', x: 0.56, y: 0.22, length: 0.2, angle: -0.32 },
-    { type: 'spinner', x: 0.5, y: 0.26, length: 0.24, angularVelocity: 0.5 },
-    { type: 'ramp', x: 0.3, y: 0.32, length: 0.6, angle: 0.25 },
-    { type: 'peg', x: 0.2, y: 0.36, radius: 0.008 },
-    { type: 'peg', x: 0.26, y: 0.39, radius: 0.008 },
-    { type: 'ramp', x: 0.7, y: 0.42, length: 0.58, angle: -0.24 },
-    { type: 'spinner', x: 0.58, y: 0.46, length: 0.24, angularVelocity: -0.45 },
-    { type: 'ramp', x: 0.3, y: 0.5, length: 0.6, angle: 0.24 },
-    { type: 'kicker', x: 0.4, y: 0.54, length: 0.18, angle: -0.3 },
-    { type: 'ramp', x: 0.68, y: 0.58, length: 0.56, angle: -0.23 },
-    { type: 'peg', x: 0.78, y: 0.62, radius: 0.008 },
-    { type: 'peg', x: 0.72, y: 0.65, radius: 0.008 },
-    { type: 'spinner', x: 0.5, y: 0.68, length: 0.24, angularVelocity: 0.45 },
-    { type: 'ramp', x: 0.32, y: 0.72, length: 0.56, angle: 0.23 },
-    { type: 'kicker', x: 0.44, y: 0.75, length: 0.2, angle: -0.28 },
-    { type: 'ramp', x: 0.7, y: 0.78, length: 0.54, angle: -0.22 },
-    { type: 'spinner', x: 0.42, y: 0.82, length: 0.22, angularVelocity: -0.5 },
-    { type: 'peg', x: 0.25, y: 0.85, radius: 0.008 },
-    { type: 'peg', x: 0.75, y: 0.87, radius: 0.008 },
-    { type: 'ramp', x: 0.5, y: 0.89, length: 0.5, angle: 0.18 }
+    { type: 'ramp', x: 0.5, y: 0.12, length: 0.24, angle: 0.18 },
+    { type: 'ramp', x: 0.36, y: 0.2, length: 0.28, angle: -0.28 },
+    { type: 'ramp', x: 0.64, y: 0.28, length: 0.28, angle: 0.28 },
+    { type: 'peg', x: 0.58, y: 0.34, radius: 0.008 },
+    { type: 'peg', x: 0.64, y: 0.34, radius: 0.008 },
+    { type: 'peg', x: 0.7, y: 0.34, radius: 0.008 },
+    { type: 'peg', x: 0.58, y: 0.4, radius: 0.008 },
+    { type: 'peg', x: 0.64, y: 0.4, radius: 0.008 },
+    { type: 'peg', x: 0.7, y: 0.4, radius: 0.008 },
+    { type: 'kicker', x: 0.52, y: 0.52, length: 0.18, angle: -0.3 },
+    { type: 'ramp', x: 0.34, y: 0.6, length: 0.28, angle: 0.22 },
+    { type: 'ramp', x: 0.66, y: 0.68, length: 0.28, angle: -0.22 },
+    { type: 'spinner', x: 0.5, y: 0.82, length: 0.22, angularVelocity: -0.45 }
   ]
 }
 
@@ -337,11 +367,11 @@ export function GameScreen({
       worldSizeRef.current = { width: worldWidth, height: worldHeight }
       viewSizeRef.current = { width: canvasWidth, height: canvasHeight }
     }
-    const viewSize = viewSizeRef.current || { width: canvasWidth, height: canvasHeight }
-    const viewWidth = viewSize.width
-    const viewHeight = viewSize.height
     const toWidth = (value, fallback) => resolveMapValue(value ?? fallback, worldWidth, mapScale)
     const toHeight = (value, fallback) => resolveMapValue(value ?? fallback, worldHeight, mapScale)
+
+    const getViewSize = () => viewSizeRef.current || { width: canvasWidth, height: canvasHeight }
+    const initialView = getViewSize()
 
     const engine = Engine.create()
     engineRef.current = engine
@@ -361,14 +391,19 @@ export function GameScreen({
     renderRef.current = render
     render.options.hasBounds = true
     render.bounds.min.x = 0
-    render.bounds.max.x = viewWidth
+    render.bounds.max.x = initialView.width
     render.bounds.min.y = 0
-    render.bounds.max.y = viewHeight
+    render.bounds.max.y = initialView.height
 
-    const camera = { currentY: viewHeight / 2, deltaY: 0 }
-    const cameraOffset = viewHeight * 0.25
+    const camera = {
+      currentX: initialView.width / 2,
+      currentY: initialView.height / 2,
+      deltaX: 0,
+      deltaY: 0
+    }
 
     const updateCamera = () => {
+      const { width: viewWidth, height: viewHeight } = getViewSize()
       const bodies = Composite.allBodies(engine.world)
       let leader = null
 
@@ -383,23 +418,29 @@ export function GameScreen({
 
       leaderRef.current = leader
 
-      if (!leader) {
-        camera.deltaY = 0
-        return
-      }
-
+      const minX = viewWidth / 2
+      const maxX = Math.max(minX, worldWidth - viewWidth / 2)
       const minY = viewHeight / 2
       const maxY = Math.max(minY, worldHeight - viewHeight / 2)
-      const targetY = clamp(leader.position.y + cameraOffset, minY, maxY)
 
+      const targetX = leader
+        ? clamp(leader.position.x, minX, maxX)
+        : clamp(camera.currentX, minX, maxX)
+      const targetY = leader
+        ? clamp(leader.position.y, minY, maxY)
+        : clamp(camera.currentY, minY, maxY)
+
+      const prevX = camera.currentX
       const prevY = camera.currentY
-      camera.currentY += (targetY - camera.currentY) * 0.08
+      camera.currentX = targetX
+      camera.currentY = targetY
+      camera.deltaX = camera.currentX - prevX
       camera.deltaY = camera.currentY - prevY
 
+      render.bounds.min.x = camera.currentX - viewWidth / 2
+      render.bounds.max.x = camera.currentX + viewWidth / 2
       render.bounds.min.y = camera.currentY - viewHeight / 2
       render.bounds.max.y = camera.currentY + viewHeight / 2
-      render.bounds.min.x = 0
-      render.bounds.max.x = viewWidth
     }
 
     const updateClouds = () => {
@@ -652,8 +693,111 @@ export function GameScreen({
       if (render.options.hasBounds) {
         Matter.Render.endViewTransform(render)
       }
+
+      const viewWidth = render.options.width
+      const viewHeight = render.options.height
+      const mapAspect = worldHeight / worldWidth
+      const maxMiniWidth = Math.min(viewWidth * 0.25, 220)
+      let miniHeight = Math.min(viewHeight * 0.7, 380)
+      let miniWidth = miniHeight / mapAspect
+      if (miniWidth > maxMiniWidth) {
+        miniWidth = maxMiniWidth
+        miniHeight = miniWidth * mapAspect
+      }
+
+      const miniPadding = 16
+      const miniX = miniPadding
+      const miniY = miniPadding
+      const scaleX = miniWidth / worldWidth
+      const scaleY = miniHeight / worldHeight
+      const mapToMini = (x, y) => ({
+        x: miniX + x * scaleX,
+        y: miniY + y * scaleY
+      })
+
+      context.save()
+      context.globalAlpha = 0.92
+      context.fillStyle = theme.surface
+      context.strokeStyle = theme.text
+      context.lineWidth = 2
+      context.fillRect(miniX - 8, miniY - 8, miniWidth + 16, miniHeight + 16)
+      context.strokeRect(miniX - 8, miniY - 8, miniWidth + 16, miniHeight + 16)
+
+      context.beginPath()
+      context.rect(miniX, miniY, miniWidth, miniHeight)
+      context.clip()
+
+      const drawBodyPolygon = (body, fill, stroke) => {
+        const vertices = body.vertices
+        if (!vertices || vertices.length === 0) {
+          return
+        }
+        context.beginPath()
+        vertices.forEach((vertex, index) => {
+          const pos = mapToMini(vertex.x, vertex.y)
+          if (index === 0) {
+            context.moveTo(pos.x, pos.y)
+          } else {
+            context.lineTo(pos.x, pos.y)
+          }
+        })
+        context.closePath()
+        if (fill) {
+          context.fillStyle = fill
+          context.fill()
+        }
+        if (stroke) {
+          context.strokeStyle = stroke
+          context.stroke()
+        }
+      }
+
+      context.globalAlpha = 0.7
+      walls.forEach((wall) => {
+        drawBodyPolygon(wall, theme.text, null)
+      })
+
+      context.globalAlpha = 0.8
+      obstacles.forEach((obstacle) => {
+        if (obstacle.circleRadius) {
+          const pos = mapToMini(obstacle.position.x, obstacle.position.y)
+          const radius = obstacle.circleRadius * scaleX
+          context.beginPath()
+          context.arc(pos.x, pos.y, Math.max(1.5, radius), 0, Math.PI * 2)
+          context.fillStyle = obstacle.render?.fillStyle || theme.secondary
+          context.fill()
+        } else {
+          drawBodyPolygon(obstacle, obstacle.render?.fillStyle || theme.secondary, null)
+        }
+      })
+
+      const marbleRadius = Math.max(2, miniWidth * 0.03)
+      bodies.forEach((body) => {
+        if (!body.label || !body.label.startsWith('marble-')) {
+          return
+        }
+        const pos = mapToMini(body.position.x, body.position.y)
+        context.beginPath()
+        context.arc(pos.x, pos.y, marbleRadius, 0, Math.PI * 2)
+        context.fillStyle = body.render?.fillStyle || theme.primary
+        context.fill()
+      })
+
+      const cameraMin = mapToMini(render.bounds.min.x, render.bounds.min.y)
+      const cameraMax = mapToMini(render.bounds.max.x, render.bounds.max.y)
+      context.globalAlpha = 0.95
+      context.strokeStyle = theme.secondary
+      context.lineWidth = 2
+      context.strokeRect(
+        cameraMin.x,
+        cameraMin.y,
+        cameraMax.x - cameraMin.x,
+        cameraMax.y - cameraMin.y
+      )
+
+      context.restore()
     })
-    const wallThickness = 56
+    const wallThickness = toWidth(MAP_BLUEPRINT.wallThickness ?? 56, 56)
     const wallOptions = { 
       isStatic: true, 
       render: { 
@@ -661,21 +805,9 @@ export function GameScreen({
         strokeStyle: theme.white,
         lineWidth: 3
       },
-      chamfer: { radius: 12 },
+      chamfer: { radius: Math.max(6, wallThickness * 0.2) },
       friction: 0.4
     }
-
-    const topY = 0
-    const goalWidth = Math.max(60 * mapScale, toWidth(MAP_BLUEPRINT.goalWidth ?? 0.12))
-    const goalOffset = Math.max(40 * mapScale, toHeight(MAP_BLUEPRINT.goalOffset ?? 90))
-    const goalY = worldHeight - goalOffset
-    const goalLeftX = worldWidth * 0.5 - goalWidth * 0.5
-    const goalRightX = worldWidth * 0.5 + goalWidth * 0.5
-    const funnelStartY = clamp(
-      toHeight(MAP_BLUEPRINT.funnelStartY ?? 0.8),
-      topY + 80,
-      goalY - 160
-    )
 
     const buildWall = (from, to) => {
       const dx = to.x - from.x
@@ -688,19 +820,8 @@ export function GameScreen({
       })
     }
 
-    const leftWallTop = buildWall({ x: 0, y: topY }, { x: 0, y: funnelStartY })
-    const leftWallBottom = buildWall({ x: 0, y: funnelStartY }, { x: goalLeftX, y: goalY })
-    const rightWallTop = buildWall({ x: worldWidth, y: topY }, { x: worldWidth, y: funnelStartY })
-    const rightWallBottom = buildWall({ x: worldWidth, y: funnelStartY }, { x: goalRightX, y: goalY })
-
-    const floorY = goalY + wallThickness / 2
-    const leftFloorWidth = Math.max(0, goalLeftX)
-    const rightFloorWidth = Math.max(0, worldWidth - goalRightX)
-    const floorLeft = Bodies.rectangle(leftFloorWidth / 2, floorY, leftFloorWidth, wallThickness, wallOptions)
-    const floorRight = Bodies.rectangle(goalRightX + rightFloorWidth / 2, floorY, rightFloorWidth, wallThickness, wallOptions)
-
     const obstacles = []
-    const terrain = []
+    const walls = []
     const constraints = []
     let obstacleIndex = 0
     const obstacleRestitution = 0.8
@@ -711,6 +832,50 @@ export function GameScreen({
       body.obstacleSlot = obstacleIndex
       obstacleIndex += 1
       obstacles.push(body)
+    }
+
+    const toPoint = (point) => {
+      if (!point) {
+        return null
+      }
+      return {
+        x: toWidth(point.x),
+        y: toHeight(point.y)
+      }
+    }
+
+    const addWallSegment = (from, to) => {
+      if (!from || !to) {
+        return
+      }
+      walls.push(buildWall(from, to))
+    }
+
+    const addPolyline = (points) => {
+      if (!Array.isArray(points) || points.length < 2) {
+        return
+      }
+      for (let i = 0; i < points.length - 1; i += 1) {
+        const from = toPoint(points[i])
+        const to = toPoint(points[i + 1])
+        addWallSegment(from, to)
+      }
+    }
+
+    const mapWalls = MAP_BLUEPRINT.walls || {}
+    addPolyline(mapWalls.left)
+    addPolyline(mapWalls.right)
+    if (Array.isArray(mapWalls.internal)) {
+      mapWalls.internal.forEach(addPolyline)
+    }
+
+    if (MAP_BLUEPRINT.floor !== false && MAP_BLUEPRINT.floor !== null) {
+      const floorSpec = MAP_BLUEPRINT.floor || {}
+      const floorY = toHeight(floorSpec.y ?? 1)
+      const inset = toWidth(floorSpec.inset ?? 0, 0)
+      const floorLeft = { x: inset, y: floorY }
+      const floorRight = { x: worldWidth - inset, y: floorY }
+      addWallSegment(floorLeft, floorRight)
     }
 
     MAP_BLUEPRINT.obstacles.forEach((item) => {
@@ -908,13 +1073,7 @@ export function GameScreen({
     spawnObstacleRef.current = spawnObstacle
 
     Composite.add(engine.world, [
-        leftWallTop,
-        leftWallBottom,
-        rightWallTop,
-        rightWallBottom,
-        floorLeft,
-        floorRight,
-        ...terrain,
+        ...walls,
         ...obstacles,
         ...constraints
     ])
@@ -930,6 +1089,7 @@ export function GameScreen({
       return
     }
     const render = renderRef.current
+    viewSizeRef.current = { width: dimensions.width, height: dimensions.height }
     render.options.width = dimensions.width
     render.options.height = dimensions.height
     Matter.Render.setPixelRatio(render, window.devicePixelRatio)
@@ -1049,9 +1209,9 @@ export function GameScreen({
       position: 'relative',
       height: '100%',
       backgroundColor: 'var(--color-surface)',
-      border: 'var(--border-width-thick) solid var(--color-text)',
-      boxShadow: 'var(--shadow-lg)',
-      borderRadius: 'var(--radius-lg)'
+      border: 'none',
+      boxShadow: 'none',
+      borderRadius: 0
     }}>
         <div style={{ 
           position: 'absolute', 
