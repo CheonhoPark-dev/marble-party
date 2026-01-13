@@ -8,6 +8,7 @@ const CLOUD_PADDING_MIN = 32
 const CLOUD_PADDING_MAX = 72
 const CLOUD_BOB_X = 10
 const CLOUD_BOB_Y = 6
+const CLOUD_POSITION_SMOOTHING = 0.18
 const CLOUD_DROP_OFFSET = 32
 const CLOUD_DROP_JITTER = 18
 const CLOUD_DROP_MIN_Y = 48
@@ -131,6 +132,27 @@ const resolveMapValue = (value, size, scale) => {
 }
 const randomBetween = (min, max) => min + Math.random() * (max - min)
 const pickRandom = (items) => items[Math.floor(Math.random() * items.length)]
+const getSpawnClearance = (type) => {
+  const padding = 12
+  let width = 100
+  let height = 18
+
+  if (type === 'bomb') {
+    width = 36
+    height = 36
+  } else if (type === 'spinner') {
+    width = 140
+    height = 18
+  } else if (type === 'fan') {
+    width = 94
+    height = 24
+  }
+
+  return {
+    halfWidth: width / 2 + padding,
+    halfHeight: height / 2 + padding
+  }
+}
 
 const getCloudLayout = (bounds, count) => {
   if (!bounds || count <= 0) {
@@ -184,6 +206,7 @@ export function GameScreen({
   const spawnedRef = useRef(0)
   const leaderRef = useRef(null)
   const leaderPositionRef = useRef(null)
+  const leaderIdRef = useRef(null)
   const mapScaleRef = useRef(null)
   const worldSizeRef = useRef(null)
   const viewSizeRef = useRef(null)
@@ -351,16 +374,58 @@ export function GameScreen({
     const viewHeight = bounds.max.y - bounds.min.y
     const fallbackX = (bounds.min.x + bounds.max.x) / 2
     const fallbackY = bounds.min.y + Math.min(140, viewHeight * 0.2)
-    const spawnX = clamp(
+    let spawnX = clamp(
       (cloud?.x ?? fallbackX) + (cloud?.spawnJitter ?? randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)),
       bounds.min.x + 40,
       bounds.max.x - 40
     )
-    const spawnY = clamp(
+    let spawnY = clamp(
       (cloud?.y ?? fallbackY) + CLOUD_DROP_OFFSET,
       bounds.min.y + CLOUD_DROP_MIN_Y,
       bounds.min.y + Math.min(220, viewHeight * 0.35)
     )
+
+    if (engineRef.current) {
+      const marbles = Matter.Composite.allBodies(engineRef.current.world)
+        .filter((body) => body.label && body.label.startsWith('marble-'))
+
+      if (marbles.length) {
+        const { halfWidth, halfHeight } = getSpawnClearance(obstacleType)
+        const maxAttempts = 8
+        let safeX = spawnX
+        let safeY = spawnY
+
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const candidateX = attempt === 0
+            ? spawnX
+            : clamp(
+              spawnX + randomBetween(-80, 80),
+              bounds.min.x + 40,
+              bounds.max.x - 40
+            )
+          const candidateY = attempt === 0
+            ? spawnY
+            : clamp(
+              spawnY + randomBetween(-40, 40),
+              bounds.min.y + CLOUD_DROP_MIN_Y,
+              bounds.min.y + Math.min(220, viewHeight * 0.35)
+            )
+          const region = {
+            min: { x: candidateX - halfWidth, y: candidateY - halfHeight },
+            max: { x: candidateX + halfWidth, y: candidateY + halfHeight }
+          }
+          const overlaps = Matter.Query.region(marbles, region)
+          if (!overlaps.length) {
+            safeX = candidateX
+            safeY = candidateY
+            break
+          }
+        }
+
+        spawnX = safeX
+        spawnY = safeY
+      }
+    }
 
     spawnObstacleRef.current({
       x: spawnX,
@@ -512,16 +577,23 @@ export function GameScreen({
       let deltaX = 0
       let deltaY = camera.deltaY || 0
       if (leader) {
-        const prev = leaderPositionRef.current
-        if (prev) {
+        if (leaderIdRef.current !== leader.id || !leaderPositionRef.current) {
+          leaderIdRef.current = leader.id
+          leaderPositionRef.current = {
+            x: leader.position.x,
+            y: leader.position.y
+          }
+        } else {
+          const prev = leaderPositionRef.current
           deltaX = leader.position.x - prev.x
           deltaY = leader.position.y - prev.y
-        }
-        leaderPositionRef.current = {
-          x: leader.position.x,
-          y: leader.position.y
+          leaderPositionRef.current = {
+            x: leader.position.x,
+            y: leader.position.y
+          }
         }
       } else {
+        leaderIdRef.current = null
         leaderPositionRef.current = null
       }
 
@@ -621,8 +693,15 @@ export function GameScreen({
         let nextY = clamp(cloud.roamY, skyMinY, skyMaxY)
         cloud.roamY = clamp(nextY, hardMinY, hardMaxY)
 
-        cloud.x = cloud.roamX + bobX
-        cloud.y = cloud.roamY + bobY
+        const targetX = cloud.roamX + bobX
+        const targetY = cloud.roamY + bobY
+        if (cloud.x == null || cloud.y == null) {
+          cloud.x = targetX
+          cloud.y = targetY
+        } else {
+          cloud.x += (targetX - cloud.x) * CLOUD_POSITION_SMOOTHING
+          cloud.y += (targetY - cloud.y) * CLOUD_POSITION_SMOOTHING
+        }
       }
     }
 
