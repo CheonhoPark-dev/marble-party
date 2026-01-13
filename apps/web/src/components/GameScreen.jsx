@@ -11,6 +11,7 @@ const CLOUD_BOB_Y = 6
 const CLOUD_DROP_OFFSET = 32
 const CLOUD_DROP_JITTER = 18
 const CLOUD_DROP_MIN_Y = 48
+const ZOOM_FACTOR = 0.85
 
 const AVATAR_TYPES = ['airplane', 'cloud', 'bird', 'ufo', 'butterfly']
 
@@ -24,66 +25,58 @@ const OBSTACLE_TTL = {
 // Map layout uses normalized values (0..1) relative to map width/height.
 // Values greater than 1 are treated as base units and scaled with width.
 const MAP_BLUEPRINT = {
-  width: 960,
+  width: 1400,
   height: 5600,
   wallThickness: 56,
   floor: { y: 1, inset: 0.1 },
   walls: {
     left: [
-      { x: 0.32, y: 0.0 },
-      { x: 0.32, y: 0.08 },
-      { x: 0.34, y: 0.16 },
-      { x: 0.34, y: 0.26 },
-      { x: 0.2, y: 0.32 },
-      { x: 0.2, y: 0.44 },
-      { x: 0.4, y: 0.5 },
-      { x: 0.4, y: 0.62 },
-      { x: 0.26, y: 0.7 },
-      { x: 0.26, y: 0.82 },
-      { x: 0.4, y: 0.9 },
-      { x: 0.4, y: 1.0 }
+      { x: 0.05, y: 0.0 },
+      { x: 0.05, y: 0.08 },
+      { x: 0.35, y: 0.22 },
+      { x: 0.05, y: 0.42 },
+      { x: 0.38, y: 0.62 },
+      { x: 0.05, y: 0.82 },
+      { x: 0.42, y: 1.0 }
     ],
     right: [
-      { x: 0.68, y: 0.0 },
-      { x: 0.68, y: 0.08 },
-      { x: 0.66, y: 0.16 },
-      { x: 0.66, y: 0.28 },
-      { x: 0.82, y: 0.36 },
-      { x: 0.82, y: 0.48 },
-      { x: 0.6, y: 0.56 },
-      { x: 0.6, y: 0.68 },
-      { x: 0.74, y: 0.76 },
-      { x: 0.74, y: 0.88 },
-      { x: 0.6, y: 0.96 },
-      { x: 0.6, y: 1.0 }
+      { x: 0.95, y: 0.0 },
+      { x: 0.95, y: 0.08 },
+      { x: 0.90, y: 0.22 },
+      { x: 0.60, y: 0.42 },
+      { x: 0.95, y: 0.62 },
+      { x: 0.62, y: 0.82 },
+      { x: 0.58, y: 1.0 }
     ],
     internal: [
       [
-        { x: 0.56, y: 0.46 },
-        { x: 0.7, y: 0.56 },
-        { x: 0.58, y: 0.7 }
+        { x: 0.70, y: 0.23 },
+        { x: 0.50, y: 0.20 }
       ],
       [
-        { x: 0.44, y: 0.68 },
-        { x: 0.3, y: 0.8 },
-        { x: 0.46, y: 0.92 }
+        { x: 0.35, y: 0.45 },
+        { x: 0.15, y: 0.40 }
+      ],
+      [
+        { x: 0.85, y: 0.60 },
+        { x: 0.65, y: 0.65 }
       ]
     ]
   },
   obstacles: [
-    { type: 'ramp', x: 0.5, y: 0.12, length: 0.24, angle: 0.18 },
-    { type: 'ramp', x: 0.36, y: 0.2, length: 0.28, angle: -0.28 },
-    { type: 'ramp', x: 0.64, y: 0.28, length: 0.28, angle: 0.28 },
-    { type: 'peg', x: 0.58, y: 0.34, radius: 0.008 },
-    { type: 'peg', x: 0.64, y: 0.34, radius: 0.008 },
-    { type: 'peg', x: 0.7, y: 0.34, radius: 0.008 },
-    { type: 'peg', x: 0.58, y: 0.4, radius: 0.008 },
-    { type: 'peg', x: 0.64, y: 0.4, radius: 0.008 },
-    { type: 'peg', x: 0.7, y: 0.4, radius: 0.008 },
-    { type: 'kicker', x: 0.52, y: 0.52, length: 0.18, angle: -0.3 },
-    { type: 'ramp', x: 0.34, y: 0.6, length: 0.28, angle: 0.22 },
-    { type: 'ramp', x: 0.66, y: 0.68, length: 0.28, angle: -0.22 },
-    { type: 'spinner', x: 0.5, y: 0.82, length: 0.22, angularVelocity: -0.45 }
+    { type: 'ramp', x: 0.20, y: 0.05, length: 0.30, angle: 0.45 },
+    { type: 'ramp', x: 0.80, y: 0.05, length: 0.30, angle: -0.45 },
+
+    { type: 'peg', x: 0.40, y: 0.35, radius: 0.008 },
+    { type: 'peg', x: 0.60, y: 0.35, radius: 0.008 },
+    { type: 'peg', x: 0.80, y: 0.35, radius: 0.008 },
+
+    { type: 'spinner', x: 0.50, y: 0.54, length: 0.40, angularVelocity: 0.3 },
+
+    { type: 'kicker', x: 0.40, y: 0.75, length: 0.22, angle: -0.6 },
+    { type: 'kicker', x: 0.60, y: 0.75, length: 0.15, angle: 0.6 },
+
+    { type: 'peg', x: 0.50, y: 0.92, radius: 0.01 }
   ]
 }
 
@@ -91,6 +84,16 @@ const MAP_BLUEPRINT = {
 
 const BOMB_BLAST_RADIUS = 160
 const BOMB_BLAST_FORCE = 0.0011
+const STUCK_SPEED = 0.08
+const STUCK_DURATION = 1000
+const STUCK_FORCE = 0.0012
+const STUCK_LIFT = 0.0016
+const KICKER_FORCE_X = 0.008
+const KICKER_FORCE_Y = 0.02
+const KICKER_COOLDOWN = 180
+const KICKER_ACTIVE_FORCE_X = 0.003
+const KICKER_ACTIVE_FORCE_Y = 0.009
+const KICKER_ACTIVE_INTERVAL = 60
 
 const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
 const resolveMapValue = (value, size, scale) => {
@@ -165,7 +168,33 @@ export function GameScreen({
   const windFieldsRef = useRef([])
   const spawnObstacleRef = useRef(null)
   const avatarImagesRef = useRef({})
+  const stuckTrackerRef = useRef(new Map())
+  const kickerCooldownRef = useRef(new Map())
+  const kickerActiveRef = useRef(new Map())
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const [rankings, setRankings] = useState([])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!engineRef.current) return
+
+      const marbles = Matter.Composite.allBodies(engineRef.current.world)
+        .filter(b => b.label && b.label.startsWith('marble-'))
+
+      const sorted = marbles
+        .sort((a, b) => b.position.y - a.position.y)
+        .slice(0, 10)
+
+      setRankings(sorted.map((b, i) => ({
+        id: b.id,
+        rank: i + 1,
+        name: b.customName || 'Marble',
+        color: b.render?.fillStyle
+      })))
+    }, 500)
+
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     AVATAR_TYPES.forEach(type => {
@@ -329,7 +358,7 @@ export function GameScreen({
     }
 
     handleResize()
-    
+
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
@@ -350,7 +379,7 @@ export function GameScreen({
       muted: styles.getPropertyValue('--color-text-muted').trim(),
     }
 
-      const Engine = Matter.Engine,
+    const Engine = Matter.Engine,
       Render = Matter.Render,
       Runner = Matter.Runner,
       Bodies = Matter.Bodies,
@@ -403,7 +432,9 @@ export function GameScreen({
     }
 
     const updateCamera = () => {
-      const { width: viewWidth, height: viewHeight } = getViewSize()
+      const rawView = getViewSize()
+      const viewWidth = rawView.width * ZOOM_FACTOR
+      const viewHeight = rawView.height * ZOOM_FACTOR
       const bodies = Composite.allBodies(engine.world)
       let leader = null
 
@@ -423,8 +454,11 @@ export function GameScreen({
       const minY = viewHeight / 2
       const maxY = Math.max(minY, worldHeight - viewHeight / 2)
 
+      const lookaheadX = leader
+        ? clamp(leader.velocity.x * 36, -viewWidth * 0.12, viewWidth * 0.12)
+        : 0
       const targetX = leader
-        ? clamp(leader.position.x, minX, maxX)
+        ? clamp(leader.position.x + lookaheadX, minX, maxX)
         : clamp(camera.currentX, minX, maxX)
       const targetY = leader
         ? clamp(leader.position.y, minY, maxY)
@@ -432,8 +466,9 @@ export function GameScreen({
 
       const prevX = camera.currentX
       const prevY = camera.currentY
-      camera.currentX = targetX
-      camera.currentY = targetY
+      const smoothing = 0.12
+      camera.currentX = prevX + (targetX - prevX) * smoothing
+      camera.currentY = prevY + (targetY - prevY) * smoothing
       camera.deltaX = camera.currentX - prevX
       camera.deltaY = camera.currentY - prevY
 
@@ -513,9 +548,9 @@ export function GameScreen({
 
       for (const cloud of clouds.values()) {
         if (cloud.roamX == null) {
-            cloud.roamX = cloud.x
-            cloud.roamY = cloud.y
-            cloud.roamSpeed = randomBetween(6.5, 9.0)
+          cloud.roamX = cloud.x
+          cloud.roamY = cloud.y
+          cloud.roamSpeed = randomBetween(6.5, 9.0)
         }
 
         cloud.roamX += deltaX
@@ -528,12 +563,12 @@ export function GameScreen({
         }
 
         const targetInvalid = cloud.roamTargetX == null ||
-            cloud.roamTargetX < skyMinX || cloud.roamTargetX > skyMaxX ||
-            cloud.roamTargetY < skyMinY || cloud.roamTargetY > skyMaxY
+          cloud.roamTargetX < skyMinX || cloud.roamTargetX > skyMaxX ||
+          cloud.roamTargetY < skyMinY || cloud.roamTargetY > skyMaxY
 
         if (targetInvalid) {
-            cloud.roamTargetX = randomBetween(skyMinX, skyMaxX)
-            cloud.roamTargetY = randomBetween(skyMinY, skyMaxY)
+          cloud.roamTargetX = randomBetween(skyMinX, skyMaxX)
+          cloud.roamTargetY = randomBetween(skyMinY, skyMaxY)
         }
 
         const dx = cloud.roamTargetX - cloud.roamX
@@ -541,11 +576,11 @@ export function GameScreen({
         const dist = Math.hypot(dx, dy)
 
         if (dist < 24) {
-            cloud.roamTargetX = randomBetween(skyMinX, skyMaxX)
-            cloud.roamTargetY = randomBetween(skyMinY, skyMaxY)
+          cloud.roamTargetX = randomBetween(skyMinX, skyMaxX)
+          cloud.roamTargetY = randomBetween(skyMinY, skyMaxY)
         } else {
-            cloud.roamX += (dx / dist) * cloud.roamSpeed
-            cloud.roamY += (dy / dist) * cloud.roamSpeed
+          cloud.roamX += (dx / dist) * cloud.roamSpeed
+          cloud.roamY += (dy / dist) * cloud.roamSpeed
         }
 
         const bobSpeed = cloud.bobSpeed ?? 1
@@ -558,10 +593,10 @@ export function GameScreen({
         const hardMaxY = bounds.max.y - safePadY - bobY
 
         cloud.roamX = clamp(cloud.roamX, hardMinX, hardMaxX)
-        
+
         let nextY = clamp(cloud.roamY, skyMinY, skyMaxY)
         cloud.roamY = clamp(nextY, hardMinY, hardMaxY)
-        
+
         cloud.x = cloud.roamX + bobX
         cloud.y = cloud.roamY + bobY
       }
@@ -605,11 +640,124 @@ export function GameScreen({
       })
     }
 
+    const nudgeStuckMarbles = () => {
+      const bodies = Composite.allBodies(engine.world)
+      const now = Date.now()
+      const tracker = stuckTrackerRef.current
+
+      bodies.forEach((body) => {
+        if (!body.label || !body.label.startsWith('marble-') || body.isStatic) {
+          return
+        }
+
+        const speed = body.speed ?? Math.hypot(body.velocity.x, body.velocity.y)
+        if (speed > STUCK_SPEED) {
+          tracker.set(body.id, now)
+          return
+        }
+
+        const lastActive = tracker.get(body.id) ?? now
+        if (now - lastActive < STUCK_DURATION) {
+          tracker.set(body.id, lastActive)
+          return
+        }
+
+        Matter.Sleeping.set(body, false)
+        Matter.Body.applyForce(body, body.position, {
+          x: randomBetween(-STUCK_FORCE, STUCK_FORCE),
+          y: -STUCK_LIFT
+        })
+        tracker.set(body.id, now)
+      })
+    }
+
+    const updateKickerVisuals = () => {
+      const now = Date.now()
+      const bodies = Composite.allBodies(engine.world)
+      bodies.forEach(body => {
+        if (body.isKicker && body.flashEndTime && now > body.flashEndTime) {
+          body.render.fillStyle = body.originalFillStyle
+          body.flashEndTime = null
+        }
+      })
+    }
+
     const updateWorld = (event) => {
       updateCamera()
       updateClouds()
+      nudgeStuckMarbles()
       applyWindForces()
+      updateKickerVisuals()
     }
+
+    Events.on(engine, 'collisionStart', (event) => {
+      const now = Date.now()
+      const cooldowns = kickerCooldownRef.current
+
+      event.pairs.forEach((pair) => {
+        const bodyA = pair.bodyA
+        const bodyB = pair.bodyB
+        const kicker = bodyA.isKicker ? bodyA : bodyB.isKicker ? bodyB : null
+        if (!kicker) {
+          return
+        }
+        const marble = kicker === bodyA ? bodyB : bodyA
+        if (!marble.label || !marble.label.startsWith('marble-')) {
+          return
+        }
+        const lastKick = cooldowns.get(marble.id) ?? 0
+        if (now - lastKick < KICKER_COOLDOWN) {
+          return
+        }
+
+        if (!kicker.originalFillStyle) {
+          kicker.originalFillStyle = kicker.render.fillStyle
+        }
+        kicker.render.fillStyle = theme.white
+        kicker.flashEndTime = now + 200
+
+        const kickAngle = kicker.angle ?? 0
+        const kickDirX = Math.sin(kickAngle)
+        const kickDirY = -Math.cos(kickAngle)
+        Matter.Sleeping.set(marble, false)
+        Matter.Body.setVelocity(marble, {
+          x: marble.velocity.x + kickDirX * KICKER_FORCE_X * 1800 + randomBetween(-KICKER_FORCE_X * 600, KICKER_FORCE_X * 600),
+          y: Math.min(marble.velocity.y, 0) + kickDirY * KICKER_FORCE_Y * 1800
+        })
+        cooldowns.set(marble.id, now)
+      })
+    })
+
+    Events.on(engine, 'collisionActive', (event) => {
+      const now = Date.now()
+      const activeCooldowns = kickerActiveRef.current
+
+      event.pairs.forEach((pair) => {
+        const bodyA = pair.bodyA
+        const bodyB = pair.bodyB
+        const kicker = bodyA.isKicker ? bodyA : bodyB.isKicker ? bodyB : null
+        if (!kicker) {
+          return
+        }
+        const marble = kicker === bodyA ? bodyB : bodyA
+        if (!marble.label || !marble.label.startsWith('marble-')) {
+          return
+        }
+        const lastActive = activeCooldowns.get(marble.id) ?? 0
+        if (now - lastActive < KICKER_ACTIVE_INTERVAL) {
+          return
+        }
+        const kickAngle = kicker.angle ?? 0
+        const kickDirX = Math.sin(kickAngle)
+        const kickDirY = -Math.cos(kickAngle)
+        Matter.Sleeping.set(marble, false)
+        Matter.Body.setVelocity(marble, {
+          x: marble.velocity.x + kickDirX * KICKER_ACTIVE_FORCE_X * 1400 + randomBetween(-KICKER_ACTIVE_FORCE_X * 500, KICKER_ACTIVE_FORCE_X * 500),
+          y: Math.min(marble.velocity.y, 0) + kickDirY * KICKER_ACTIVE_FORCE_Y * 1200
+        })
+        activeCooldowns.set(marble.id, now)
+      })
+    })
 
     Events.on(engine, 'afterUpdate', updateWorld)
 
@@ -626,19 +774,19 @@ export function GameScreen({
       context.textBaseline = "middle"
       context.lineWidth = 3
       context.strokeStyle = theme.surface
-      
+
       bodies.forEach(body => {
         if (body.label && body.label.startsWith('marble-')) {
           const { x, y } = body.position
           const text = body.customName || ''
-          
+
           context.strokeText(text, x, y - 22)
           context.fillStyle = theme.text
           context.fillText(text, x, y - 22)
         } else if (body.obstacleLabel) {
           const { x, y } = body.position
           const text = body.obstacleLabel
-          
+
           context.save()
           context.font = "bold 10px sans-serif"
           context.strokeStyle = body.obstacleOwnerColor || theme.surface
@@ -658,9 +806,9 @@ export function GameScreen({
         clouds.forEach((cloud) => {
           const baseX = cloud.x
           const baseY = cloud.y
-          
+
           const img = avatarImagesRef.current[cloud.avatarType]
-          
+
           if (img) {
             const size = 60
             context.drawImage(img, baseX - size / 2, baseY - size / 2, size, size)
@@ -670,7 +818,7 @@ export function GameScreen({
             context.fillStyle = fill
             context.strokeStyle = cloud.color || theme.secondary
             context.lineWidth = 2
-  
+
             context.beginPath()
             context.arc(baseX - 14, baseY, 12, 0, Math.PI * 2)
             context.arc(baseX, baseY - 8, 16, 0, Math.PI * 2)
@@ -798,10 +946,10 @@ export function GameScreen({
       context.restore()
     })
     const wallThickness = toWidth(MAP_BLUEPRINT.wallThickness ?? 56, 56)
-    const wallOptions = { 
-      isStatic: true, 
-      render: { 
-        fillStyle: theme.text, 
+    const wallOptions = {
+      isStatic: true,
+      render: {
+        fillStyle: theme.text,
         strokeStyle: theme.white,
         lineWidth: 3
       },
@@ -931,22 +1079,33 @@ export function GameScreen({
       }
 
       if (item.type === 'ramp' || item.type === 'kicker') {
-        const length = toWidth(item.length, item.type === 'kicker' ? 0.18 : 0.58)
-        const thickness = toWidth(item.thickness, item.type === 'kicker' ? 12 : 14)
+        const isKicker = item.type === 'kicker'
+        const length = toWidth(item.length, isKicker ? 0.18 : 0.58)
+        const thickness = toWidth(item.thickness, isKicker ? 12 : 14)
         const angle = item.angle ?? 0
-        const fillStyle = item.type === 'kicker' ? theme.secondary : theme.text
+
+        const render = isKicker ? {
+          fillStyle: '#9B59B6',
+          strokeStyle: theme.text,
+          lineWidth: 3
+        } : {
+          fillStyle: theme.text,
+          strokeStyle: 'transparent',
+          lineWidth: 0
+        }
+
+        const chamfer = { radius: isKicker ? 10 : 4 }
+
         const ramp = Bodies.rectangle(x, y, length, thickness, {
           isStatic: true,
-          restitution: obstacleRestitution,
+          restitution: isKicker ? 1.15 : obstacleRestitution,
           friction: 0.02,
           frictionStatic: 0,
-          chamfer: { radius: 4 },
-          render: {
-            fillStyle,
-            strokeStyle: 'transparent'
-          },
+          chamfer,
+          render,
           angle
         })
+        ramp.isKicker = isKicker
         registerObstacle(ramp)
       }
     })
@@ -1073,11 +1232,11 @@ export function GameScreen({
     spawnObstacleRef.current = spawnObstacle
 
     Composite.add(engine.world, [
-        ...walls,
-        ...obstacles,
-        ...constraints
+      ...walls,
+      ...obstacles,
+      ...constraints
     ])
- 
+
     Render.run(render)
     const runner = Runner.create()
     runnerRef.current = runner
@@ -1137,14 +1296,14 @@ export function GameScreen({
     if (!engineRef.current) return
     const worldWidth = worldSizeRef.current?.width ?? dimensions.width
     if (!worldWidth) return
-    
+
     const currentCount = candidates.length
     if (currentCount < spawnedRef.current) {
-        spawnedRef.current = 0
+      spawnedRef.current = 0
     }
-    
+
     const needed = currentCount - spawnedRef.current
-    
+
     if (needed > 0) {
       const styles = getComputedStyle(document.documentElement)
       const theme = {
@@ -1163,7 +1322,7 @@ export function GameScreen({
       const colors = [theme.primary, theme.secondary, theme.success, theme.warning, '#9B59B6', '#E67E22', '#1ABC9C', '#34495E']
 
       for (let i = 0; i < needed; i += 1) {
-        const x = Common.random(worldWidth * 0.4, worldWidth * 0.6)
+        const x = Common.random(worldWidth * 0.25, worldWidth * 0.75)
         const y = -40 - (i * 50)
         const size = Common.random(14, 18)
 
@@ -1200,10 +1359,10 @@ export function GameScreen({
   }, [candidates, dimensions])
 
   return (
-    <div className="card animate-enter" style={{ 
-      flex: 1, 
-      display: 'flex', 
-      flexDirection: 'column', 
+    <div className="card animate-enter" style={{
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
       padding: 0,
       overflow: 'hidden',
       position: 'relative',
@@ -1213,63 +1372,111 @@ export function GameScreen({
       boxShadow: 'none',
       borderRadius: 0
     }}>
-        <div style={{ 
-          position: 'absolute', 
-          top: 24, 
-          left: 24, 
-          zIndex: 10,
-          display: 'flex',
-          gap: '12px'
+      <div style={{
+        position: 'absolute',
+        bottom: 24,
+        left: 24,
+        zIndex: 10,
+        display: 'flex',
+        gap: '12px'
+      }}>
+        <div className="badge" style={{
+          background: 'var(--color-white)',
+          fontSize: '18px',
+          padding: '8px 16px',
+          borderWidth: 'var(--border-width-thick)',
+          boxShadow: 'var(--shadow-sm)'
         }}>
-           <div className="badge" style={{ 
-             background: 'var(--color-white)',
-             fontSize: '18px',
-             padding: '8px 16px',
-             borderWidth: 'var(--border-width-thick)',
-             boxShadow: 'var(--shadow-sm)'
-           }}>
-             MARBLES: {candidates.length}
-           </div>
+          MARBLES: {candidates.length}
         </div>
+      </div>
 
-        <div
-          ref={sceneRef}
-          style={{
-            flex: 1,
-            width: '100%',
-            height: '100%',
-            minHeight: 0,
-            backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(242,230,216,0.95) 100%),
+      <div
+        ref={sceneRef}
+        style={{
+          flex: 1,
+          width: '100%',
+          height: '100%',
+          minHeight: 0,
+          backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(242,230,216,0.95) 100%),
               repeating-linear-gradient(0deg, rgba(28,26,26,0.06) 0px, rgba(28,26,26,0.06) 1px, transparent 1px, transparent 28px)`
+        }}
+      />
+
+      <div style={{
+        position: 'absolute',
+        top: 24,
+        right: 24,
+        zIndex: 10,
+        pointerEvents: 'none'
+      }}>
+        <button
+          className="btn btn-secondary"
+          style={{
+            pointerEvents: 'auto',
+            width: 'auto',
+            minWidth: '120px',
+            height: '40px',
+            padding: '0 14px',
+            borderWidth: 'var(--border-width)',
+            boxShadow: 'var(--shadow-sm)',
+            fontWeight: 800,
+            fontSize: '12px',
+            letterSpacing: '0.5px'
           }}
-        />
-        
-        <div style={{ 
-          position: 'absolute', 
-          top: 24, 
-          right: 24, 
-          zIndex: 10,
-          pointerEvents: 'none'
-        }}>
-            <button 
-              className="btn btn-secondary" 
-              style={{ 
-                pointerEvents: 'auto', 
-                width: 'auto',
-                minWidth: '120px',
-                height: '40px',
-                padding: '0 14px',
-                borderWidth: 'var(--border-width)',
-                boxShadow: 'var(--shadow-sm)',
-                fontWeight: 800,
-                fontSize: '12px',
-                letterSpacing: '0.5px'
-              }} 
-              onClick={onBack}
-            >
-                STOP PARTY
-            </button>
-        </div>
+          onClick={onBack}
+        >
+          STOP PARTY
+        </button>
+      </div>
+
+      <div style={{
+        position: 'absolute',
+        top: 80,
+        right: 24,
+        width: 200,
+        pointerEvents: 'none',
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }}>
+        {rankings.map((r) => (
+          <div key={r.id} className="animate-enter" style={{
+            background: 'var(--color-surface)',
+            border: 'var(--border-width) solid var(--color-text)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            boxShadow: 'var(--shadow-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span style={{
+              fontWeight: 800,
+              color: 'var(--color-secondary)',
+              minWidth: '24px'
+            }}>#{r.rank}</span>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: r.color || 'var(--color-text)',
+              border: '1px solid var(--color-text)'
+            }} />
+            <span style={{
+              fontWeight: 600,
+              fontSize: '14px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: 'var(--color-text)'
+            }}>
+              {r.name}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
