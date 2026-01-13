@@ -363,7 +363,7 @@ export function GameScreen({
     const spawnY = clamp(
       baseY,
       bounds.min.y + CLOUD_DROP_MIN_Y,
-      bounds.min.y + Math.min(220, viewHeight * 0.35)
+      bounds.max.y - 40
     )
 
     spawnObstacleRef.current({
