@@ -353,27 +353,18 @@ export function GameScreen({
     const viewHeight = bounds.max.y - bounds.min.y
     const fallbackX = (bounds.min.x + bounds.max.x) / 2
     const fallbackY = bounds.min.y + Math.min(140, viewHeight * 0.2)
-    let spawnX = clamp(
-      (cloud?.x ?? fallbackX) + (cloud?.spawnJitter ?? randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)),
+    const baseX = cloud?.x ?? fallbackX
+    const baseY = cloud?.y ?? fallbackY
+    const spawnX = clamp(
+      baseX,
       bounds.min.x + 40,
       bounds.max.x - 40
     )
-    let spawnY = clamp(
-      (cloud?.y ?? fallbackY) + CLOUD_DROP_OFFSET,
+    const spawnY = clamp(
+      baseY,
       bounds.min.y + CLOUD_DROP_MIN_Y,
       bounds.min.y + Math.min(220, viewHeight * 0.35)
     )
-
-    if (engineRef.current) {
-      const marbles = Matter.Composite.allBodies(engineRef.current.world)
-        .filter((body) => body.label && body.label.startsWith('marble-'))
-      const ownerMarble = marbles.find((body) => body.label === `marble-${participantId}`)
-
-      if (ownerMarble) {
-        spawnX = ownerMarble.position.x
-        spawnY = ownerMarble.position.y
-      }
-    }
 
     spawnObstacleRef.current({
       x: spawnX,
