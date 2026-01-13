@@ -11,7 +11,7 @@ const CLOUD_BOB_Y = 6
 const CLOUD_DROP_OFFSET = 32
 const CLOUD_DROP_JITTER = 18
 const CLOUD_DROP_MIN_Y = 48
-const ZOOM_FACTOR = 0.85
+const ZOOM_FACTOR = 0.78
 
 const AVATAR_TYPES = ['airplane', 'cloud', 'bird', 'ufo', 'butterfly']
 
@@ -67,15 +67,39 @@ const MAP_BLUEPRINT = {
     { type: 'ramp', x: 0.20, y: 0.05, length: 0.30, angle: 0.45 },
     { type: 'ramp', x: 0.80, y: 0.05, length: 0.30, angle: -0.45 },
 
-    { type: 'peg', x: 0.40, y: 0.35, radius: 0.008 },
-    { type: 'peg', x: 0.60, y: 0.35, radius: 0.008 },
-    { type: 'peg', x: 0.80, y: 0.35, radius: 0.008 },
+    { type: 'peg', x: 0.20, y: 0.12, radius: 0.008 },
+    { type: 'peg', x: 0.40, y: 0.12, radius: 0.008 },
+    { type: 'peg', x: 0.60, y: 0.12, radius: 0.008 },
+    { type: 'peg', x: 0.80, y: 0.12, radius: 0.008 },
+
+    { type: 'peg', x: 0.30, y: 0.18, radius: 0.008 },
+    { type: 'peg', x: 0.50, y: 0.18, radius: 0.008 },
+    { type: 'peg', x: 0.70, y: 0.18, radius: 0.008 },
+
+    { type: 'peg', x: 0.35, y: 0.28, radius: 0.008 },
+    { type: 'peg', x: 0.55, y: 0.28, radius: 0.008 },
+    { type: 'peg', x: 0.75, y: 0.28, radius: 0.008 },
+
+    { type: 'peg', x: 0.30, y: 0.32, radius: 0.008 },
+    { type: 'peg', x: 0.50, y: 0.32, radius: 0.008 },
+    { type: 'peg', x: 0.65, y: 0.32, radius: 0.008 },
+
+    { type: 'peg', x: 0.50, y: 0.45, radius: 0.008 },
+    { type: 'peg', x: 0.60, y: 0.45, radius: 0.008 },
+
+    { type: 'peg', x: 0.30, y: 0.50, radius: 0.008 },
+    { type: 'peg', x: 0.70, y: 0.50, radius: 0.008 },
 
     { type: 'spinner', x: 0.50, y: 0.54, length: 0.40, angularVelocity: 0.3 },
 
-    { type: 'kicker', x: 0.40, y: 0.75, length: 0.22, angle: -0.6 },
-    { type: 'kicker', x: 0.60, y: 0.75, length: 0.15, angle: 0.6 },
+    { type: 'peg', x: 0.45, y: 0.65, radius: 0.008 },
+    { type: 'peg', x: 0.55, y: 0.65, radius: 0.008 },
 
+    { type: 'kicker', x: 0.40, y: 0.75, length: 0.22, angle: -0.6 },
+    { type: 'kicker', x: 0.60, y: 0.75, length: 0.10, angle: 0.6 },
+
+    { type: 'peg', x: 0.30, y: 0.85, radius: 0.008 },
+    { type: 'peg', x: 0.50, y: 0.85, radius: 0.008 },
     { type: 'peg', x: 0.50, y: 0.92, radius: 0.01 }
   ]
 }
