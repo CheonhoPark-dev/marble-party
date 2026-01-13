@@ -17,7 +17,7 @@ const ZOOM_FACTOR = 0.78
 const AVATAR_TYPES = ['airplane', 'cloud', 'bird', 'ufo', 'butterfly']
 
 const OBSTACLE_TTL = {
-  bomb: 2000,
+  bomb: 1200,
   normal: 3000,
   spinner: 3000,
   fan: 3000
@@ -107,8 +107,8 @@ const MAP_BLUEPRINT = {
 
 
 
-const BOMB_BLAST_RADIUS = 160
-const BOMB_BLAST_FORCE = 0.0011
+const BOMB_BLAST_RADIUS = 220
+const BOMB_BLAST_FORCE = 0.0048
 const STUCK_SPEED = 0.08
 const STUCK_DURATION = 1000
 const STUCK_FORCE = 0.0012
@@ -197,6 +197,7 @@ export function GameScreen({
   const stuckTrackerRef = useRef(new Map())
   const kickerCooldownRef = useRef(new Map())
   const kickerActiveRef = useRef(new Map())
+  const effectsRef = useRef([])
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [rankings, setRankings] = useState([])
 
@@ -322,23 +323,23 @@ export function GameScreen({
         return
       }
 
-      clouds.set(participantId, {
-        id: participantId,
-        x: basePosition.x,
-        y: basePosition.y,
-        roamX: basePosition.x,
-        roamY: basePosition.y,
-        roamTargetX: null,
-        roamTargetY: null,
-        roamSpeed: randomBetween(10.0, 14.0),
-        color: assignment.color,
-        nickname: assignment.nickname,
-        avatarType: pickRandom(AVATAR_TYPES),
-        orderIndex: index,
-        bobPhase: Math.random() * Math.PI * 2,
-        bobSpeed: randomBetween(0.85, 1.2),
-        spawnJitter: randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)
-      })
+        clouds.set(participantId, {
+          id: participantId,
+          x: basePosition.x,
+          y: basePosition.y,
+          roamX: basePosition.x,
+          roamY: basePosition.y,
+          roamTargetX: null,
+          roamTargetY: null,
+          roamSpeed: randomBetween(2.25, 4.2),
+          color: assignment.color,
+          nickname: assignment.nickname,
+          avatarType: pickRandom(AVATAR_TYPES),
+          orderIndex: index,
+          bobPhase: Math.random() * Math.PI * 2,
+          bobSpeed: randomBetween(0.85, 1.2),
+          spawnJitter: randomBetween(-CLOUD_DROP_JITTER, CLOUD_DROP_JITTER)
+        })
     })
   }, [assignments, dimensions])
 
@@ -544,7 +545,7 @@ export function GameScreen({
       const now = Date.now()
       const viewWidth = bounds.max.x - bounds.min.x
       const viewHeight = bounds.max.y - bounds.min.y
-      const CLOUD_RADIUS = 30
+      const CLOUD_RADIUS = 45
       const safePadX = CLOUD_RADIUS + CLOUD_BOB_X
       const safePadY = CLOUD_RADIUS + CLOUD_BOB_Y
 
@@ -553,10 +554,10 @@ export function GameScreen({
       const focusX = leader ? leader.position.x : (bounds.min.x + bounds.max.x) / 2
       const focusY = leader ? leader.position.y : (bounds.min.y + bounds.max.y) / 2
 
-      const maxRadiusX = Math.max(180, viewWidth * 0.7)
-      const maxRadiusY = Math.max(140, viewHeight * 0.6)
-      const radiusX = clamp(160 + clouds.size * 18, 180, maxRadiusX)
-      const radiusY = clamp(120 + clouds.size * 14, 140, maxRadiusY)
+        const maxRadiusX = Math.max(180, viewWidth * 0.98)
+        const maxRadiusY = Math.max(140, viewHeight * 0.9)
+        const radiusX = clamp(360 + clouds.size * 30, 360, maxRadiusX)
+        const radiusY = clamp(280 + clouds.size * 22, 280, maxRadiusY)
 
       const worldMinX = Math.min(bounds.min.x + targetPad, bounds.max.x - targetPad)
       const worldMaxX = Math.max(bounds.min.x + targetPad, bounds.max.x - targetPad)
@@ -585,7 +586,7 @@ export function GameScreen({
         if (cloud.roamX == null) {
           cloud.roamX = cloud.x
           cloud.roamY = cloud.y
-          cloud.roamSpeed = randomBetween(6.5, 9.0)
+          cloud.roamSpeed = randomBetween(1.8, 3.6)
         }
 
         cloud.roamX += deltaX
@@ -677,7 +678,8 @@ export function GameScreen({
           if (x < minX || x > maxX || y < minY || y > maxY) {
             return
           }
-          Matter.Body.applyForce(body, body.position, { x: field.strength, y: 0 })
+          Matter.Sleeping.set(body, false)
+          Matter.Body.applyForce(body, body.position, { x: 0, y: -field.strength })
         })
       })
     }
@@ -724,12 +726,29 @@ export function GameScreen({
       })
     }
 
+    const updateSpawnedObstacles = () => {
+      const bodies = Composite.allBodies(engine.world)
+      bodies.forEach((body) => {
+        if (!body.isSpawnedObstacle) {
+          return
+        }
+        if (body.obstacleType === 'spinner') {
+          const target = body.spinnerVelocity ?? 0.7
+          Matter.Sleeping.set(body, false)
+          if (Math.abs(body.angularVelocity - target) > 0.02) {
+            Matter.Body.setAngularVelocity(body, target)
+          }
+        }
+      })
+    }
+
     const updateWorld = (event) => {
       updateCamera()
       updateClouds()
       nudgeStuckMarbles()
       applyWindForces()
       updateKickerVisuals()
+      updateSpawnedObstacles()
     }
 
     Events.on(engine, 'collisionStart', (event) => {
@@ -811,6 +830,204 @@ export function GameScreen({
         Matter.Render.startViewTransform(render)
       }
 
+      const now = Date.now()
+      
+      const effects = effectsRef.current
+      for (let i = effects.length - 1; i >= 0; i--) {
+        const effect = effects[i]
+        const age = now - effect.startedAt
+        if (age > 600) {
+          effects.splice(i, 1)
+          continue
+        }
+        const progress = age / 600
+        const ease = 1 - Math.pow(1 - progress, 3)
+        const alpha = 1 - progress
+
+        context.beginPath()
+        context.arc(effect.x, effect.y, 20 + ease * 120, 0, Math.PI * 2)
+        context.strokeStyle = `rgba(231, 76, 60, ${alpha})`
+        context.lineWidth = 4 * alpha
+        context.stroke()
+      }
+
+      bodies.forEach(body => {
+        if (!body.isSpawnedObstacle) return
+
+        const { x, y } = body.position
+        context.save()
+        context.translate(x, y)
+        context.rotate(body.angle)
+
+        if (body.obstacleType === 'bomb') {
+          context.beginPath()
+          context.arc(0, 0, 17, 0, Math.PI * 2)
+          context.fillStyle = '#2c3e50'
+          context.fill()
+
+          context.beginPath()
+          context.arc(-6, -6, 6, 0, Math.PI * 2)
+          context.fillStyle = 'rgba(255, 255, 255, 0.25)'
+          context.fill()
+
+          context.lineWidth = 2.5
+          context.strokeStyle = theme.text
+          context.stroke()
+
+          context.fillStyle = '#7f8c8d'
+          context.fillRect(-5, -22, 10, 6)
+          context.strokeRect(-5, -22, 10, 6)
+
+          context.beginPath()
+          context.moveTo(0, -22)
+          context.bezierCurveTo(0, -32, 10, -28, 14, -34)
+          context.lineWidth = 2
+          context.strokeStyle = '#d35400'
+          context.stroke()
+
+          const pulse = (Math.sin(now * 0.03) + 1) * 0.5
+          const cx = 14, cy = -34
+          context.translate(cx, cy)
+          context.rotate(now * 0.02)
+          context.beginPath()
+          const spikes = 6
+          const outer = 6 + pulse * 3
+          const inner = 3
+          for (let i = 0; i < spikes * 2; i++) {
+            const r = i % 2 === 0 ? outer : inner
+            const a = (Math.PI * i) / spikes
+            context.lineTo(Math.cos(a) * r, Math.sin(a) * r)
+          }
+          context.closePath()
+          context.fillStyle = '#f1c40f'
+          context.fill()
+          context.strokeStyle = '#e74c3c'
+          context.lineWidth = 1
+          context.stroke()
+          context.rotate(-now * 0.02)
+          context.translate(-cx, -cy)
+
+        } else if (body.obstacleType === 'spinner') {
+          const width = body.renderWidth || 120
+          const h = 14
+          const w = width
+
+          context.fillStyle = theme.secondary
+          context.strokeStyle = theme.text
+          context.lineWidth = 2
+          context.beginPath()
+          if (context.roundRect) {
+            context.roundRect(-w / 2, -h / 2, w, h, 6)
+          } else {
+            context.rect(-w / 2, -h / 2, w, h)
+          }
+          context.fill()
+          context.stroke()
+
+          context.fillStyle = 'rgba(255,255,255,0.4)'
+          context.beginPath()
+          for (let i = -w / 2 + 10; i < w / 2; i += 20) {
+            context.rect(i, -h / 2, 8, h)
+          }
+          context.fill()
+
+          context.beginPath()
+          context.arc(0, 0, 6, 0, Math.PI * 2)
+          context.fillStyle = theme.text
+          context.fill()
+        } else if (body.obstacleType === 'fan') {
+          const w = 94
+          const h = 24
+
+          context.fillStyle = theme.surface
+          context.strokeStyle = theme.text
+          context.lineWidth = 2
+          if (context.roundRect) {
+            context.beginPath()
+            context.roundRect(-w / 2, -h / 2, w, h, 4)
+            context.fill()
+            context.stroke()
+          } else {
+            context.fillRect(-w / 2, -h / 2, w, h)
+            context.strokeRect(-w / 2, -h / 2, w, h)
+          }
+
+          context.save()
+          context.beginPath()
+          context.rect(-w / 2, -h / 2, w, h)
+          context.clip()
+
+          const spacing = 16
+          const speed = now * 0.08
+          const offset = speed % spacing
+
+          context.beginPath()
+          context.strokeStyle = theme.muted
+          context.lineWidth = 2
+          for (let x = -w / 2 - spacing; x < w / 2 + spacing; x += spacing) {
+            const drawX = x + offset
+            context.moveTo(drawX - 4, -h / 2 - 4)
+            context.lineTo(drawX + 4, h / 2 + 4)
+          }
+          context.stroke()
+          context.restore()
+
+          context.beginPath()
+          for (let i = 1; i < 4; i++) {
+            const x = -w / 2 + (w * i / 4)
+            context.moveTo(x, -h / 2)
+            context.lineTo(x, h / 2)
+          }
+          context.lineWidth = 1.5
+          context.strokeStyle = 'rgba(0,0,0,0.15)'
+          context.stroke()
+
+          const windSpeed = 0.15
+          const windOffset = (now * windSpeed) % 25
+          context.beginPath()
+          context.strokeStyle = theme.success
+          context.lineWidth = 2
+
+          for (let i = 0; i < 4; i++) {
+            const xOff = (i - 1.5) * 20
+            const localOff = (windOffset + i * 7) % 25
+            const y = -h / 2 - 6 - localOff
+            const len = 10 + Math.sin(now * 0.01 + i) * 4
+
+            context.globalAlpha = Math.max(0, 1 - localOff / 25)
+            context.moveTo(xOff, y)
+            context.lineTo(xOff, y - len)
+          }
+          context.stroke()
+          context.globalAlpha = 1
+        } else {
+          const w = 100
+          const h = 18
+          context.fillStyle = '#95a5a6'
+          context.beginPath()
+          if (context.roundRect) {
+            context.roundRect(-w / 2, -h / 2, w, h, 4)
+          } else {
+            context.rect(-w / 2, -h / 2, w, h)
+          }
+          context.fill()
+
+          context.lineWidth = 2
+          context.strokeStyle = theme.text
+          context.stroke()
+
+          context.beginPath()
+          context.moveTo(-w / 2 + 10, -h / 2)
+          context.lineTo(-w / 2 + 10, h / 2)
+          context.moveTo(w / 2 - 10, -h / 2)
+          context.lineTo(w / 2 - 10, h / 2)
+          context.strokeStyle = 'rgba(0,0,0,0.1)'
+          context.stroke()
+        }
+
+        context.restore()
+      })
+
       context.font = "bold 14px sans-serif"
       context.textAlign = "center"
       context.textBaseline = "middle"
@@ -852,7 +1069,7 @@ export function GameScreen({
           const img = avatarImagesRef.current[cloud.avatarType]
 
           if (img) {
-            const size = 60
+            const size = 90
             context.drawImage(img, baseX - size / 2, baseY - size / 2, size, size)
           } else {
             // Fallback drawing if image not loaded yet
@@ -862,9 +1079,9 @@ export function GameScreen({
             context.lineWidth = 2
 
             context.beginPath()
-            context.arc(baseX - 14, baseY, 12, 0, Math.PI * 2)
-            context.arc(baseX, baseY - 8, 16, 0, Math.PI * 2)
-            context.arc(baseX + 16, baseY, 12, 0, Math.PI * 2)
+            context.arc(baseX - 21, baseY, 18, 0, Math.PI * 2)
+            context.arc(baseX, baseY - 12, 24, 0, Math.PI * 2)
+            context.arc(baseX + 24, baseY, 18, 0, Math.PI * 2)
             context.closePath()
             context.fill()
             context.stroke()
@@ -874,7 +1091,7 @@ export function GameScreen({
             context.fillStyle = theme.text
             context.font = 'bold 12px sans-serif'
             // Name above the image
-            context.fillText(cloud.nickname, baseX, baseY - 40)
+            context.fillText(cloud.nickname, baseX, baseY - 60)
           }
         })
         context.restore()
@@ -1168,9 +1385,9 @@ export function GameScreen({
           isStatic: true,
           restitution: 0.4,
           render: {
-            fillStyle: theme.warning,
-            strokeStyle: theme.text,
-            lineWidth: 3
+            fillStyle: 'transparent',
+            strokeStyle: 'transparent',
+            lineWidth: 0
           }
         })
       } else if (type === 'spinner') {
@@ -1180,12 +1397,14 @@ export function GameScreen({
           frictionAir: 0.006,
           density: 0.004,
           render: {
-            fillStyle: theme.secondary,
-            strokeStyle: theme.text,
-            lineWidth: 3
+            fillStyle: 'transparent',
+            strokeStyle: 'transparent',
+            lineWidth: 0
           }
         })
-        body.angularVelocity = (Math.random() * 2 - 1) * 0.8
+        body.renderWidth = spinnerLength
+        body.spinnerVelocity = (Math.random() < 0.5 ? -1 : 1) * randomBetween(0.6, 1.0)
+        body.angularVelocity = body.spinnerVelocity
         constraint = Constraint.create({
           pointA: { x, y },
           bodyB: body,
@@ -1197,20 +1416,17 @@ export function GameScreen({
         body = Bodies.rectangle(x, y, 94, 24, {
           isStatic: true,
           render: {
-            fillStyle: theme.success,
-            strokeStyle: theme.text,
-            lineWidth: 3
+            fillStyle: 'transparent',
+            strokeStyle: 'transparent',
+            lineWidth: 0
           }
         })
-        const bounds = renderRef.current?.bounds
-        const centerX = bounds ? (bounds.min.x + bounds.max.x) / 2 : x
-        const direction = x < centerX ? -1 : 1
         windFieldsRef.current.push({
           x,
           y,
-          width: 260,
-          height: 180,
-          strength: 0.003 * direction,
+          width: 200,
+          height: 320,
+          strength: 0.009,
           expiresAt: Date.now() + ttl
         })
       } else {
@@ -1221,9 +1437,9 @@ export function GameScreen({
           friction: 0.02,
           chamfer: { radius: 6 },
           render: {
-            fillStyle: theme.text,
-            strokeStyle: theme.white,
-            lineWidth: 2
+            fillStyle: 'transparent',
+            strokeStyle: 'transparent',
+            lineWidth: 0
           },
           angle
         })
@@ -1243,6 +1459,7 @@ export function GameScreen({
 
       const timerId = setTimeout(() => {
         if (type === 'bomb') {
+          effectsRef.current.push({ x, y, startedAt: Date.now() })
           const bodies = Composite.allBodies(world)
           const radius = BOMB_BLAST_RADIUS
           bodies.forEach((target) => {
@@ -1256,9 +1473,11 @@ export function GameScreen({
               return
             }
             const strength = BOMB_BLAST_FORCE * (1 - distance / radius)
-            Matter.Body.applyForce(target, target.position, {
-              x: (dx / distance) * strength,
-              y: (dy / distance) * strength
+            const impulse = strength * 1800
+            Matter.Sleeping.set(target, false)
+            Matter.Body.setVelocity(target, {
+              x: target.velocity.x + (dx / distance) * impulse,
+              y: target.velocity.y + (dy / distance) * impulse - strength * 900
             })
           })
         }
