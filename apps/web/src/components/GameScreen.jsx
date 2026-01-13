@@ -132,27 +132,6 @@ const resolveMapValue = (value, size, scale) => {
 }
 const randomBetween = (min, max) => min + Math.random() * (max - min)
 const pickRandom = (items) => items[Math.floor(Math.random() * items.length)]
-const getSpawnClearance = (type) => {
-  const padding = 12
-  let width = 100
-  let height = 18
-
-  if (type === 'bomb') {
-    width = 36
-    height = 36
-  } else if (type === 'spinner') {
-    width = 140
-    height = 18
-  } else if (type === 'fan') {
-    width = 94
-    height = 24
-  }
-
-  return {
-    halfWidth: width / 2 + padding,
-    halfHeight: height / 2 + padding
-  }
-}
 
 const getCloudLayout = (bounds, count) => {
   if (!bounds || count <= 0) {
@@ -388,42 +367,11 @@ export function GameScreen({
     if (engineRef.current) {
       const marbles = Matter.Composite.allBodies(engineRef.current.world)
         .filter((body) => body.label && body.label.startsWith('marble-'))
+      const ownerMarble = marbles.find((body) => body.label === `marble-${participantId}`)
 
-      if (marbles.length) {
-        const { halfWidth, halfHeight } = getSpawnClearance(obstacleType)
-        const maxAttempts = 8
-        let safeX = spawnX
-        let safeY = spawnY
-
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          const candidateX = attempt === 0
-            ? spawnX
-            : clamp(
-              spawnX + randomBetween(-80, 80),
-              bounds.min.x + 40,
-              bounds.max.x - 40
-            )
-          const candidateY = attempt === 0
-            ? spawnY
-            : clamp(
-              spawnY + randomBetween(-40, 40),
-              bounds.min.y + CLOUD_DROP_MIN_Y,
-              bounds.min.y + Math.min(220, viewHeight * 0.35)
-            )
-          const region = {
-            min: { x: candidateX - halfWidth, y: candidateY - halfHeight },
-            max: { x: candidateX + halfWidth, y: candidateY + halfHeight }
-          }
-          const overlaps = Matter.Query.region(marbles, region)
-          if (!overlaps.length) {
-            safeX = candidateX
-            safeY = candidateY
-            break
-          }
-        }
-
-        spawnX = safeX
-        spawnY = safeY
+      if (ownerMarble) {
+        spawnX = ownerMarble.position.x
+        spawnY = ownerMarble.position.y
       }
     }
 
