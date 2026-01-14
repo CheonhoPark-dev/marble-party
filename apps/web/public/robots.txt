@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://marble-party.com/sitemap.xml

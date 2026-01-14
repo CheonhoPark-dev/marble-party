@@ -1104,15 +1104,18 @@ export function GameScreen({
       const viewWidth = render.options.width
       const viewHeight = render.options.height
       const mapAspect = worldHeight / worldWidth
-      const maxMiniWidth = Math.min(viewWidth * 0.25, 220)
-      let miniHeight = Math.min(viewHeight * 0.7, 380)
+
+      const isCompactScreen = viewWidth < 640 || viewHeight < 520
+      const maxMiniWidth = Math.min(viewWidth * (isCompactScreen ? 0.18 : 0.25), isCompactScreen ? 150 : 220)
+      let miniHeight = Math.min(viewHeight * (isCompactScreen ? 0.22 : 0.7), isCompactScreen ? 150 : 380)
+
       let miniWidth = miniHeight / mapAspect
       if (miniWidth > maxMiniWidth) {
         miniWidth = maxMiniWidth
         miniHeight = miniWidth * mapAspect
       }
 
-      const miniPadding = 16
+      const miniPadding = isCompactScreen ? 10 : 16
       const miniX = miniPadding
       const miniY = miniPadding
       const scaleX = miniWidth / worldWidth
@@ -1581,11 +1584,13 @@ export function GameScreen({
 
       const newMarbles = []
       const colors = [theme.primary, theme.secondary, theme.success, theme.warning, '#9B59B6', '#E67E22', '#1ABC9C', '#34495E']
+      const responsiveScale = dimensions.width < 640 || dimensions.height < 520 ? 0.75 : 1
 
       for (let i = 0; i < needed; i += 1) {
         const x = Common.random(worldWidth * 0.25, worldWidth * 0.75)
         const y = -40 - (i * 50)
-        const size = Common.random(14, 18)
+        const currentScale = mapScaleRef.current || 1
+        const size = Common.random(14, 18) * currentScale * responsiveScale
 
         const candidateIndex = spawnedRef.current + i
         const candidate = candidates[candidateIndex]
@@ -1618,6 +1623,8 @@ export function GameScreen({
       spawnedRef.current = currentCount
     }
   }, [candidates, dimensions])
+
+  const isCompactScreen = dimensions.width < 640 || dimensions.height < 560
 
   return (
     <div className="card animate-enter" style={{
@@ -1693,41 +1700,44 @@ export function GameScreen({
 
       <div style={{
         position: 'absolute',
-        top: 80,
-        right: 24,
-        width: 200,
+        top: isCompactScreen ? 56 : 80,
+        right: isCompactScreen ? 8 : 24,
+        width: isCompactScreen ? 120 : 200,
+        maxHeight: isCompactScreen ? '45%' : 'unset',
+        overflow: 'hidden',
         pointerEvents: 'none',
         zIndex: 10,
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px'
+        gap: isCompactScreen ? '6px' : '8px'
       }}>
         {rankings.map((r) => (
           <div key={r.id} className="animate-enter" style={{
             background: 'var(--color-surface)',
             border: 'var(--border-width) solid var(--color-text)',
-            padding: '8px 12px',
+            padding: isCompactScreen ? '4px 6px' : '8px 12px',
             borderRadius: '8px',
             boxShadow: 'var(--shadow-sm)',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px'
+            gap: isCompactScreen ? '6px' : '12px'
           }}>
             <span style={{
               fontWeight: 800,
               color: 'var(--color-secondary)',
-              minWidth: '24px'
+              minWidth: isCompactScreen ? '16px' : '24px',
+              fontSize: isCompactScreen ? '11px' : '14px'
             }}>#{r.rank}</span>
             <div style={{
-              width: '12px',
-              height: '12px',
+              width: isCompactScreen ? '10px' : '12px',
+              height: isCompactScreen ? '10px' : '12px',
               borderRadius: '50%',
               backgroundColor: r.color || 'var(--color-text)',
               border: '1px solid var(--color-text)'
             }} />
             <span style={{
               fontWeight: 600,
-              fontSize: '14px',
+              fontSize: isCompactScreen ? '10px' : '14px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',

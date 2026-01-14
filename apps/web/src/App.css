@@ -28,6 +28,16 @@
   justify-content: stretch;
 }
 
+.seo-section {
+  margin-top: var(--space-24);
+}
+
+.seo-grid {
+  display: grid;
+  gap: var(--space-16);
+  margin-top: var(--space-16);
+}
+
 @supports (-webkit-touch-callout: none) {
   .app-container {
     min-height: -webkit-fill-available;

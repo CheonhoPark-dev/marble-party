@@ -382,6 +382,26 @@ function App() {
               </p>
             )}
           </div>
+
+          <section className="card seo-section animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <h2>마블 파티란?</h2>
+            <p>
+              Marble Party는 실시간 마블 레이스 파티 게임입니다. 방을 만들고 친구들이 모바일로
+              참가하면 큰 화면에서 함께 레이스를 즐길 수 있어요.
+            </p>
+            <div className="seo-grid">
+              <div>
+                <h3>플레이 방법</h3>
+                <p className="text-caption">방 만들기 -> 코드 공유 -> 모바일 참가 -> 레이스 시작</p>
+              </div>
+              <div>
+                <h3>파티에 최적화</h3>
+                <p className="text-caption">
+                  모바일은 컨트롤러, 큰 화면은 경기장. 모임이나 스트리밍에도 잘 어울립니다.
+                </p>
+              </div>
+            </div>
+          </section>
         </div>
       )}
 
