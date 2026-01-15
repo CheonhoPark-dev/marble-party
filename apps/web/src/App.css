@@ -58,6 +58,15 @@
   z-index: 10;
 }
 
+.editor-header .btn {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.editor-header h2 {
+  white-space: nowrap;
+}
+
 .editor-body {
   flex: 1;
   display: flex;
@@ -83,9 +92,23 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-8);
+}
+
+.map-list-item > span {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 0;
+  margin-bottom: var(--space-4);
+}
+
+.map-list-item .btn {
+  width: auto;
+  flex-shrink: 0;
 }
 
 .map-list-item:hover {
@@ -194,6 +217,14 @@
   text-transform: uppercase;
   font-size: 10px;
   transition: all 0.1s;
+}
+
+.tool-btn span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  padding: 0 2px;
 }
 
 .tool-icon {

@@ -1107,7 +1107,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack, t }) {
                 }}
               >
                 <span>{map.name}</span>
-                <div className="flex-row gap-6">
+                <div className="flex-row gap-6" style={{ justifyContent: 'flex-end' }}>
                   <button
                     className="btn btn-outline"
                     onClick={(event) => {
@@ -1382,7 +1382,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack, t }) {
               <div className="card" style={{ padding: '8px', marginTop: '12px' }}>
                 <div className="flex-row justify-between items-center" style={{ marginBottom: '6px' }}>
                   <span className="text-caption">{t.editor.properties}</span>
-                  <div className="flex-row gap-6">
+                <div className="flex-row gap-6" style={{ justifyContent: 'flex-end' }}>
                     <button
                       className="btn btn-outline"
                       onClick={() => cloneObstacle(selectedObstacleIndex)}

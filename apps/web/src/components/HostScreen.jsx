@@ -131,7 +131,10 @@ export function HostScreen({
         </div>
 
         <p className="text-caption">
-          {joinUrl ? joinUrl : t.host.scanToJoin}
+          {joinUrl || 'www.marble-party.com'}
+        </p>
+        <p style={{ marginTop: 'var(--space-8)', fontSize: '19px', fontWeight: 600 }}>
+          {t.host.scanToJoin(roomCode)}
         </p>
       </div>
 
@@ -156,12 +159,12 @@ export function HostScreen({
       </div>
 
       <div className="card mb-16 animate-slide-up" style={{ animationDelay: '0.25s', padding: 'var(--space-16)' }}>
-        <div className="flex-row justify-between items-center mb-8">
+        <div className="flex-row justify-between items-center mb-8" style={{ flexWrap: 'wrap', gap: 'var(--space-8)' }}>
           <h3 className="text-h3" style={{ margin: 0 }}>{t.host.mapSelection}</h3>
           <button
             className="btn btn-outline"
             onClick={onOpenEditor}
-            style={{ height: '36px', fontSize: '14px', padding: '0 12px' }}
+            style={{ height: '32px', fontSize: '13px', padding: '0 8px' }}
           >
             {t.host.editMaps}
           </button>
@@ -213,21 +216,26 @@ export function HostScreen({
       </div>
 
       <div className="mt-auto animate-slide-up flex-row gap-16 items-end" style={{ paddingTop: 'var(--space-24)', animationDelay: '0.3s' }}>
-        <textarea
-          className="input-field"
-          value={candidateText}
-          onChange={(e) => onCandidateChange(e.target.value)}
-          onBlur={onCandidateBlur}
-          placeholder={t.host.candidatePlaceholder}
-          style={{
-            height: '80px',
-            resize: 'none',
-            fontSize: '16px',
-            flex: 1,
-            padding: '12px',
-            lineHeight: '1.2'
-          }}
-        />
+        <div className="flex-col" style={{ flex: 1 }}>
+          <p className="text-caption" style={{ marginBottom: 'var(--space-4)' }}>
+            {t.host.candidateGuide}
+          </p>
+          <textarea
+            className="input-field"
+            value={candidateText}
+            onChange={(e) => onCandidateChange(e.target.value)}
+            onBlur={onCandidateBlur}
+            placeholder={t.host.candidatePlaceholder}
+            style={{
+              height: '80px',
+              resize: 'none',
+              fontSize: '16px',
+              width: '100%',
+              padding: '12px',
+              lineHeight: '1.2'
+            }}
+          />
+        </div>
         <button
           className="btn btn-primary"
           onClick={onStart}

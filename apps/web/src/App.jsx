@@ -48,7 +48,7 @@ const TRANSLATIONS = {
       lobbyOpen: 'LOBBY OPEN',
       joinRoom: 'JOIN ROOM',
       generating: 'Generating...',
-      scanToJoin: 'Scan to join instantly',
+      scanToJoin: (roomCode) => `Scan the QR code, or go to www.marble-party.com, tap Join Party, and enter code ${roomCode}!`,
       racers: 'RACERS',
       joinedReady: (joined, ready) => `${joined} JOINED · ${ready} READY`,
       racerLabel: (index) => `Racer #${index + 1}`,
@@ -56,7 +56,8 @@ const TRANSLATIONS = {
       mapSelection: 'MAP SELECTION',
       editMaps: 'EDIT MAPS',
       selectMapPreview: 'Select a map to preview',
-      candidatePlaceholder: 'Candidates (comma/newline, *number supported)',
+      candidateGuide: 'Candidates (comma/newline, *number supported)',
+      candidatePlaceholder: 'Alex, Jamie*2, Taylor, Morgan, Riley',
       startRace: 'START RACE',
       connecting: 'Connecting to the race server...',
       qrAlt: (roomCode) => `QR Code for room ${roomCode}`,
@@ -250,7 +251,7 @@ const TRANSLATIONS = {
       lobbyOpen: '로비 열림',
       joinRoom: '방 참가',
       generating: '생성 중...',
-      scanToJoin: '스캔해서 바로 참가',
+      scanToJoin: (roomCode) => `QR 코드로 접속하거나 www.marble-party.com에서 파티 참가자를 누르고 ${roomCode} 코드를 입력하세요!`,
       racers: '참가자',
       joinedReady: (joined, ready) => `${joined}명 참가 · ${ready}명 준비`,
       racerLabel: (index) => `참가자 #${index + 1}`,
@@ -258,7 +259,8 @@ const TRANSLATIONS = {
       mapSelection: '맵 선택',
       editMaps: '맵 편집',
       selectMapPreview: '미리 볼 맵을 선택하세요',
-      candidatePlaceholder: '추첨 대상 (쉼표/줄바꿈, *숫자 가능)',
+      candidateGuide: '추첨 대상 (쉼표/줄바꿈, *숫자 가능)',
+      candidatePlaceholder: '민수, 지영*2, 현우, 서연, 준호',
       startRace: '레이스 시작',
       connecting: '레이스 서버 연결 중...',
       qrAlt: (roomCode) => `방 ${roomCode} QR 코드`,
@@ -452,7 +454,7 @@ const TRANSLATIONS = {
       lobbyOpen: 'ロビー開放',
       joinRoom: '部屋に参加',
       generating: '生成中...',
-      scanToJoin: 'スキャンして即参加',
+      scanToJoin: (roomCode) => `QRコードで参加するか、www.marble-party.comで「パーティー参加」を選び、コード${roomCode}を入力してください！`,
       racers: '参加者',
       joinedReady: (joined, ready) => `${joined}人参加 · ${ready}人準備完了`,
       racerLabel: (index) => `参加者 #${index + 1}`,
@@ -460,7 +462,8 @@ const TRANSLATIONS = {
       mapSelection: 'マップ選択',
       editMaps: 'マップ編集',
       selectMapPreview: 'プレビューするマップを選択',
-      candidatePlaceholder: '候補（カンマ/改行、*数指定可）',
+      candidateGuide: '候補（カンマ/改行、*数指定可）',
+      candidatePlaceholder: 'たろう、はなこ*2、ゆうと、さくら、けん',
       startRace: 'レース開始',
       connecting: 'レースサーバーに接続中...',
       qrAlt: (roomCode) => `部屋 ${roomCode} のQRコード`,
@@ -654,7 +657,7 @@ const TRANSLATIONS = {
       lobbyOpen: '大厅已开启',
       joinRoom: '加入房间',
       generating: '生成中...',
-      scanToJoin: '扫码立即加入',
+      scanToJoin: (roomCode) => `扫码进入，或访问 www.marble-party.com 点击“加入派对”，输入代码${roomCode}！`,
       racers: '参赛者',
       joinedReady: (joined, ready) => `${joined}人加入 · ${ready}人准备`,
       racerLabel: (index) => `选手 #${index + 1}`,
@@ -662,7 +665,8 @@ const TRANSLATIONS = {
       mapSelection: '地图选择',
       editMaps: '编辑地图',
       selectMapPreview: '选择地图以预览',
-      candidatePlaceholder: '候选（逗号/换行，支持*数量）',
+      candidateGuide: '候选（逗号/换行，支持*数量）',
+      candidatePlaceholder: '小明，小红*2，伟，婷，杰',
       startRace: '开始比赛',
       connecting: '正在连接比赛服务器...',
       qrAlt: (roomCode) => `房间 ${roomCode} 的二维码`,
@@ -953,6 +957,7 @@ function App() {
   const [joinUrl, setJoinUrl] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [candidateText, setCandidateText] = useState('')
+  const [hasEditedCandidates, setHasEditedCandidates] = useState(false)
   const [gameData, setGameData] = useState(null)
   const [assignment, setAssignment] = useState(null)
   const [lastSpawnEvent, setLastSpawnEvent] = useState(null)
@@ -974,6 +979,10 @@ function App() {
     () => SUPPORTED_LANGUAGES.map((code) => ({ code, label: LANGUAGE_NAMES[code] || code })),
     []
   )
+  const defaultCandidateText = useMemo(
+    () => (TRANSLATIONS[language] || TRANSLATIONS.en).host.candidatePlaceholder,
+    [language]
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -983,9 +992,20 @@ function App() {
     document.documentElement.lang = language
   }, [language])
 
+  useEffect(() => {
+    if (!hasEditedCandidates) {
+      setCandidateText(defaultCandidateText)
+    }
+  }, [defaultCandidateText, hasEditedCandidates])
+
   const handleLanguageChange = (value) => {
     const next = SUPPORTED_LANGUAGES.includes(value) ? value : resolveLanguage(value)
     setLanguage(next)
+  }
+
+  const handleCandidateChange = (value) => {
+    setHasEditedCandidates(true)
+    setCandidateText(value)
   }
 
 
@@ -1331,26 +1351,7 @@ function App() {
             )}
           </div>
 
-          <div className="card animate-slide-up" style={{ animationDelay: '0.15s', marginTop: 'var(--space-16)' }}>
-            <h3 style={{ marginBottom: 'var(--space-8)' }}>{t.home.settingsTitle}</h3>
-            <div>
-              <label className="input-label" style={{ display: 'block', marginBottom: 'var(--space-4)' }}>{t.languageLabel}</label>
-              <select
-                className="input-field"
-                value={language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                style={{ width: '100%' }}
-              >
-                {languageOptions.map((opt) => (
-                  <option key={opt.code} value={opt.code}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <section className="card seo-section animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <section className="card seo-section animate-slide-up" style={{ animationDelay: '0.15s' }}>
             <h2>{t.home.seoTitle}</h2>
             <p>
               {t.home.seoBody}
@@ -1368,6 +1369,37 @@ function App() {
               </div>
             </div>
           </section>
+
+          <div className="card animate-slide-up" style={{ 
+            animationDelay: '0.2s', 
+            marginTop: 'var(--space-16)',
+            padding: 'var(--space-12) var(--space-16)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <h3 style={{ margin: 0, fontSize: '18px' }}>{t.home.settingsTitle}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+              <span className="text-caption">{t.languageLabel}</span>
+              <select
+                className="input-field"
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                style={{ 
+                  width: 'auto', 
+                  height: '40px',
+                  padding: '0 var(--space-12)',
+                  fontSize: '14px'
+                }}
+              >
+                {languageOptions.map((opt) => (
+                  <option key={opt.code} value={opt.code}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1389,7 +1421,7 @@ function App() {
             joinUrl={joinUrl}
             qrDataUrl={qrDataUrl}
             candidateText={candidateText}
-            onCandidateChange={setCandidateText}
+            onCandidateChange={handleCandidateChange}
             onCandidateBlur={handleCandidateBlur}
             onStart={handleStartGame}
             isWsReady={wsReady}
