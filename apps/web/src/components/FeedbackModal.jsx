@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export function FeedbackModal({ onClose }) {
+export function FeedbackModal({ onClose, t }) {
   const [step, setStep] = useState(1)
   const [complaint, setComplaint] = useState('')
 
@@ -20,8 +20,8 @@ export function FeedbackModal({ onClose }) {
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content text-center" onClick={e => e.stopPropagation()}>
           <div style={{ fontSize: '64px', marginBottom: '16px' }} className="animate-pulse">✨</div>
-          <h2 className="text-h1">THANKS!</h2>
-          <p className="text-body mb-24">Your feedback helps us make the race fairer.</p>
+          <h2 className="text-h1">{t.feedback.thanks}</h2>
+          <p className="text-body mb-24">{t.feedback.thanksBody}</p>
         </div>
       </div>
     )
@@ -31,27 +31,27 @@ export function FeedbackModal({ onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="flex-row justify-between items-center mb-24">
-          <h2 className="text-h2" style={{ margin: 0 }}>FAIRNESS CHECK</h2>
-          <button className="btn-ghost" onClick={onClose} style={{ padding: '4px' }}>✕</button>
+          <h2 className="text-h2" style={{ margin: 0 }}>{t.feedback.title}</h2>
+          <button className="btn-ghost" onClick={onClose} style={{ padding: '4px' }} aria-label={t.feedback.closeAria}>✕</button>
         </div>
 
         {step === 1 && (
           <div className="animate-slide-up">
             <p className="text-body font-bold mb-24" style={{ fontSize: '18px' }}>
-              Did you understand the rules clearly?
+              {t.feedback.step1}
             </p>
             <div className="flex-col gap-16">
               <button 
                 className="btn btn-secondary" 
                 onClick={() => handleUnderstand(true)}
               >
-                YES, CRYSTAL CLEAR
+                {t.feedback.yes}
               </button>
               <button 
                 className="btn btn-outline" 
                 onClick={() => handleUnderstand(false)}
               >
-                NO, IT WAS CONFUSING
+                {t.feedback.no}
               </button>
             </div>
           </div>
@@ -59,16 +59,16 @@ export function FeedbackModal({ onClose }) {
 
         {step === 2 && (
           <div className="animate-slide-up">
-            <p className="text-body font-bold mb-8">Any complaints or suggestions?</p>
-            <p className="text-caption mb-16">We value fairness above all. Be honest!</p>
+            <p className="text-body font-bold mb-8">{t.feedback.step2}</p>
+            <p className="text-caption mb-16">{t.feedback.step2Caption}</p>
             <textarea 
               className="feedback-textarea" 
-              placeholder="e.g., The game started too fast..."
+              placeholder={t.feedback.placeholder}
               value={complaint}
               onChange={(e) => setComplaint(e.target.value)}
             />
             <button className="btn btn-primary" onClick={handleSubmit}>
-              SUBMIT FEEDBACK
+              {t.feedback.submit}
             </button>
           </div>
         )}

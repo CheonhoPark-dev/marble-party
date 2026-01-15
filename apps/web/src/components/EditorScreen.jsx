@@ -3,18 +3,6 @@ import { GameScreen } from './GameScreen'
 
 const TOOL_OPTIONS = ['peg', 'bumper', 'spinner', 'hammer', 'ramp', 'kicker', 'kicker-once', 'slider', 'wind']
 
-const TOOL_DESCRIPTIONS = {
-  peg: 'Static circular bumper',
-  bumper: 'Large bouncy bumper',
-  spinner: 'Rotating rectangular bar',
-  hammer: 'Swinging hammer arm',
-  ramp: 'Angled surface to launch marbles',
-  kicker: 'Reusable boost paddle',
-  'kicker-once': 'One-time boost paddle',
-  slider: 'Moving platform',
-  wind: 'Zone that pushes marbles',
-}
-
 const DEFAULT_BLUEPRINT = {
   width: 1400,
   height: 8400,
@@ -72,6 +60,20 @@ const OBSTACLE_REQUIREMENTS = {
 
 const isFiniteNumber = (value) => Number.isFinite(value)
 
+const getFieldLabel = (field, t) => {
+  if (!t) {
+    return field
+  }
+  const labels = {
+    radius: t.editor.radius,
+    length: t.editor.length,
+    range: t.editor.range,
+    width: t.editor.widthLabel,
+    height: t.editor.heightLabel,
+  }
+  return labels[field] || field
+}
+
 const applyObstacleDefaults = (obstacle, nextType) => {
   const defaults = TOOL_DEFAULTS[nextType] || {}
   const next = { ...obstacle, type: nextType }
@@ -83,22 +85,25 @@ const applyObstacleDefaults = (obstacle, nextType) => {
   return next
 }
 
-const getObstacleValidationError = (obstacle, index) => {
+const getObstacleValidationError = (obstacle, index, t) => {
   const requirements = OBSTACLE_REQUIREMENTS[obstacle.type] || []
   for (const field of requirements) {
     if (!isFiniteNumber(obstacle[field])) {
-      return `Obstacle #${index + 1} (${obstacle.type}) ${field} is required.`
+      const typeLabel = t?.editor?.toolNames?.[obstacle.type] || obstacle.type
+      const fieldLabel = getFieldLabel(field, t)
+      return t?.editor?.validation?.obstacleRequired(index, typeLabel, fieldLabel)
+        || `Obstacle #${index + 1} (${typeLabel}) ${fieldLabel} is required.`
     }
   }
   return null
 }
 
-const getBlueprintValidationError = (blueprint) => {
+const getBlueprintValidationError = (blueprint, t) => {
   if (!blueprint || !Array.isArray(blueprint.obstacles)) {
     return null
   }
   for (let i = 0; i < blueprint.obstacles.length; i += 1) {
-    const obstacleError = getObstacleValidationError(blueprint.obstacles[i], i)
+    const obstacleError = getObstacleValidationError(blueprint.obstacles[i], i, t)
     if (obstacleError) {
       return obstacleError
     }
@@ -109,18 +114,42 @@ const getBlueprintValidationError = (blueprint) => {
 const normalizeAuthorName = (value) => String(value || '').trim()
 const normalizePassword = (value) => String(value || '').trim()
 
-const getCredentialsValidationError = (authorName, password) => {
+const getCredentialsValidationError = (authorName, password, t) => {
   if (!normalizeAuthorName(authorName)) {
-    return 'Author name is required.'
+    return t?.editor?.validation?.authorRequired || 'Author name is required.'
   }
   const normalizedPassword = normalizePassword(password)
   if (!normalizedPassword) {
-    return 'Password is required.'
+    return t?.editor?.validation?.passwordRequired || 'Password is required.'
   }
   if (normalizedPassword.length > MAX_PASSWORD_LENGTH) {
-    return `Password must be ${MAX_PASSWORD_LENGTH} characters or less.`
+    return t?.editor?.validation?.passwordLength?.(MAX_PASSWORD_LENGTH)
+      || `Password must be ${MAX_PASSWORD_LENGTH} characters or less.`
   }
   return null
+}
+
+const translateEditorError = (message, t) => {
+  if (!message || !t) {
+    return message
+  }
+  const trimmed = String(message).trim()
+  if (trimmed === 'Invalid password.') {
+    return t.editor.errors.invalidPassword
+  }
+  if (trimmed === 'Map not found.') {
+    return t.editor.errors.notFound
+  }
+  if (trimmed === 'Author name is required.') {
+    return t.editor.validation.authorRequired
+  }
+  if (trimmed === 'Password is required.') {
+    return t.editor.validation.passwordRequired
+  }
+  if (trimmed.startsWith('Password must be')) {
+    return t.editor.validation.passwordLength(MAX_PASSWORD_LENGTH)
+  }
+  return message
 }
 
 const TOOL_ICONS = {
@@ -219,7 +248,7 @@ function snapValue(value, enabled, step) {
   return Math.round(value / safeStep) * safeStep
 }
 
-export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
+export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack, t }) {
   const canvasRef = useRef(null)
   const viewRef = useRef({ scale: 1, offsetX: 0, offsetY: 0 })
   const dragRef = useRef({ index: null, offsetX: 0, offsetY: 0 })
@@ -368,14 +397,14 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
         }
       })
       .catch(() => {
-        setError('Unable to load map.')
+        setError(t.editor.errors.load)
       })
   }, [activeMapId, apiBase])
 
   const mapList = useMemo(() => maps || [], [maps])
   const testCandidates = useMemo(
-    () => Array.from({ length: 12 }, (_, index) => `Test ${index + 1}`),
-    []
+    () => Array.from({ length: 12 }, (_, index) => t.editor.testCandidate(index + 1)),
+    [t]
   )
 
   const getWallPoints = () => {
@@ -468,7 +497,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
     if (!source) {
       return
     }
-    const credentialsError = getCredentialsValidationError(authorName, password)
+    const credentialsError = getCredentialsValidationError(authorName, password, t)
     if (credentialsError) {
       setError(credentialsError)
       return
@@ -476,28 +505,32 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
     try {
       const response = await fetch(`${apiBase}/api/maps/${mapId}`)
       if (!response.ok) {
-        throw new Error('Unable to clone map.')
+        const body = await response.json().catch(() => ({}))
+        const message = translateEditorError(body.error, t) || t.editor.errors.clone
+        throw new Error(message)
       }
       const data = await response.json()
       const cloned = await fetch(`${apiBase}/api/maps`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${data.name || 'Untitled'} Copy`,
+          name: `${data.name || t.editor.untitled} ${t.editor.copySuffix}`,
           authorName: normalizeAuthorName(authorName),
           password: normalizePassword(password),
           blueprint: data.blueprint,
         })
       })
       if (!cloned.ok) {
-        throw new Error('Unable to clone map.')
+        const body = await cloned.json().catch(() => ({}))
+        const message = translateEditorError(body.error, t) || t.editor.errors.clone
+        throw new Error(message)
       }
       const result = await cloned.json()
       await onRefreshMaps()
       setActiveMapId(result.id)
       setMapName(result.name)
     } catch (cloneError) {
-      setError(cloneError.message || 'Unable to clone map.')
+      setError(cloneError.message || t.editor.errors.clone)
     }
   }
 
@@ -505,7 +538,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
     if (!mapId) {
       return
     }
-    const credentialsError = getCredentialsValidationError(authorName, password)
+    const credentialsError = getCredentialsValidationError(authorName, password, t)
     if (credentialsError) {
       setError(credentialsError)
       return
@@ -517,14 +550,16 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
         body: JSON.stringify({ password: normalizePassword(password) }),
       })
       if (!response.ok) {
-        throw new Error('Unable to delete map.')
+        const body = await response.json().catch(() => ({}))
+        const message = translateEditorError(body.error, t) || t.editor.errors.delete
+        throw new Error(message)
       }
       if (mapId === activeMapId) {
         setActiveMapId('')
       }
       await onRefreshMaps()
     } catch (deleteError) {
-      setError(deleteError.message || 'Unable to delete map.')
+      setError(deleteError.message || t.editor.errors.delete)
     }
   }
 
@@ -824,13 +859,13 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
   const handleSave = async () => {
     setError('')
     setIsSaving(true)
-    const credentialsError = getCredentialsValidationError(authorName, password)
+    const credentialsError = getCredentialsValidationError(authorName, password, t)
     if (credentialsError) {
       setError(credentialsError)
       setIsSaving(false)
       return
     }
-    const validationError = getBlueprintValidationError(blueprint)
+    const validationError = getBlueprintValidationError(blueprint, t)
     if (validationError) {
       setError(validationError)
       setIsSaving(false)
@@ -838,7 +873,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
     }
     try {
       const payload = {
-        name: mapName || 'Untitled Map',
+        name: mapName || t.editor.untitled,
         authorName: normalizeAuthorName(authorName),
         password: normalizePassword(password),
         blueprint,
@@ -853,14 +888,15 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
       )
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
-        throw new Error(body.error || 'Unable to save map.')
+        const message = translateEditorError(body.error, t) || t.editor.errors.save
+        throw new Error(message)
       }
       const data = await response.json()
       setActiveMapId(data.id)
       setMapName(data.name)
       onRefreshMaps()
     } catch (saveError) {
-      setError(saveError.message || 'Unable to save map.')
+      setError(saveError.message || t.editor.errors.save)
     } finally {
       setIsSaving(false)
     }
@@ -1029,34 +1065,35 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
       <header className="editor-header">
         <div className="flex-row items-center gap-12">
           <button className="btn btn-outline" onClick={onBack} style={{ height: '40px' }}>
-            BACK
+            {t.editor.back}
           </button>
-          <h2 style={{ margin: 0 }}>MAP EDITOR</h2>
+          <h2 style={{ margin: 0 }}>{t.editor.title}</h2>
           <div className="flex-row gap-8" style={{ marginLeft: '24px' }}>
-             <button className="btn btn-outline" onClick={handleUndo} disabled={historyIndex <= 0} style={{ width: '40px', height: '40px', padding: 0 }} title="Undo">
+             <button className="btn btn-outline" onClick={handleUndo} disabled={historyIndex <= 0} style={{ width: '40px', height: '40px', padding: 0 }} title={t.editor.undo}>
                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
              </button>
-              <button className="btn btn-outline" onClick={handleRedo} disabled={historyIndex >= historySize - 1} style={{ width: '40px', height: '40px', padding: 0 }} title="Redo">
+               <button className="btn btn-outline" onClick={handleRedo} disabled={historyIndex >= historySize - 1} style={{ width: '40px', height: '40px', padding: 0 }} title={t.editor.redo}>
+
                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
              </button>
           </div>
         </div>
         <div className="flex-row items-center gap-12">
           <button className="btn btn-secondary" onClick={() => setActiveMapId('')}>
-            NEW MAP
+            {t.editor.newMap}
           </button>
           <button className="btn btn-outline" onClick={() => setIsTesting(true)}>
-            TEST MAP
+            {t.editor.testMap}
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'SAVING...' : 'SAVE MAP'}
+            {isSaving ? t.editor.saving : t.editor.saveMap}
           </button>
         </div>
       </header>
 
       <div className="editor-body">
         <aside className="editor-sidebar">
-          <div className="panel-section-title">MAPS</div>
+          <div className="panel-section-title">{t.editor.maps}</div>
           <div className="flex-col gap-8">
             {mapList.map((map) => (
               <div
@@ -1079,7 +1116,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                     }}
                     style={{ height: '28px', padding: '0 8px' }}
                   >
-                    CLONE
+                    {t.editor.clone}
                   </button>
                   <button
                     className="btn btn-outline"
@@ -1089,34 +1126,34 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                     }}
                     style={{ height: '28px', padding: '0 8px' }}
                   >
-                    DELETE
+                    {t.editor.delete}
                   </button>
                 </div>
               </div>
             ))}
           </div>
-          <label className="text-caption" style={{ marginTop: 'var(--space-16)' }}>MAP NAME</label>
+          <label className="text-caption" style={{ marginTop: 'var(--space-16)' }}>{t.editor.mapName}</label>
           <input
             className="input-field"
             value={mapName}
             onChange={(event) => setMapName(event.target.value)}
-            placeholder="Map name"
+            placeholder={t.editor.mapNamePlaceholder}
           />
-          <label className="text-caption" style={{ marginTop: 'var(--space-16)' }}>AUTHOR NICKNAME</label>
+          <label className="text-caption" style={{ marginTop: 'var(--space-16)' }}>{t.editor.authorName}</label>
           <input
             className="input-field"
             value={authorName}
             onChange={(event) => setAuthorName(event.target.value)}
-            placeholder="Nickname"
+            placeholder={t.editor.authorPlaceholder}
           />
-          <label className="text-caption" style={{ marginTop: 'var(--space-16)' }}>PASSWORD</label>
+          <label className="text-caption" style={{ marginTop: 'var(--space-16)' }}>{t.editor.password}</label>
           <input
             className="input-field"
             type="password"
             maxLength={MAX_PASSWORD_LENGTH}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
+            placeholder={t.editor.passwordPlaceholder}
           />
           {error && (
             <p className="text-caption" style={{ color: 'var(--color-error)' }}>{error}</p>
@@ -1142,21 +1179,21 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
             />
           </div>
           <div className="card" style={{ position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)', padding: '8px 12px' }}>
-            <span className="text-caption">Click to place · Drag to move · Grid snap optional</span>
+            <span className="text-caption">{t.editor.canvasHint}</span>
           </div>
         </main>
 
         <aside className="editor-panel">
-          <CollapsibleSection title="SNAP" isOpen={!collapsed['SNAP']} onToggle={() => toggleSection('SNAP')}>
+          <CollapsibleSection title={t.editor.snap} isOpen={!collapsed['SNAP']} onToggle={() => toggleSection('SNAP')}>
             <label className="text-caption" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input
                 type="checkbox"
                 checked={snapEnabled}
                 onChange={(event) => setSnapEnabled(event.target.checked)}
               />
-              Snap to Grid
+              {t.editor.snapToGrid}
             </label>
-            <label className="text-caption" style={{ marginTop: '8px' }}>Grid Size (0.01 = 1%)</label>
+            <label className="text-caption" style={{ marginTop: '8px' }}>{t.editor.gridSize}</label>
             <input
               type="number"
               className="input-field"
@@ -1167,39 +1204,39 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
               onChange={(event) => setSnapSize(Number(event.target.value))}
             />
           </CollapsibleSection>
-          <CollapsibleSection title="TOOLS" isOpen={!collapsed['TOOLS']} onToggle={() => toggleSection('TOOLS')}>
+          <CollapsibleSection title={t.editor.tools} isOpen={!collapsed['TOOLS']} onToggle={() => toggleSection('TOOLS')}>
             <div className="tool-grid">
               {TOOL_OPTIONS.map((tool) => (
                 <button
                   key={tool}
                   className={`tool-btn${tool === selectedTool ? ' active' : ''}`}
                   onClick={() => setSelectedTool(tool)}
-                  title={TOOL_DESCRIPTIONS[tool]}
+                  title={t.editor.toolDescriptions[tool]}
                 >
                   {TOOL_ICONS[tool]}
-                  <span>{tool}</span>
+                  <span>{t.editor.toolNames[tool]}</span>
                 </button>
               ))}
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection title="MAP SETTINGS" isOpen={!collapsed['MAP SETTINGS']} onToggle={() => toggleSection('MAP SETTINGS')}>
+          <CollapsibleSection title={t.editor.mapSettings} isOpen={!collapsed['MAP SETTINGS']} onToggle={() => toggleSection('MAP SETTINGS')}>
             <div className="flex-col gap-8">
-              <label className="text-caption">Width (px)</label>
+              <label className="text-caption">{t.editor.width}</label>
               <input
                 type="number"
                 className="input-field"
                 value={blueprint.width}
                 onChange={(event) => updateBlueprint((prev) => ({ ...prev, width: Number(event.target.value) }))}
               />
-              <label className="text-caption">Height (px)</label>
+              <label className="text-caption">{t.editor.height}</label>
               <input
                 type="number"
                 className="input-field"
                 value={blueprint.height}
                 onChange={(event) => updateBlueprint((prev) => ({ ...prev, height: Number(event.target.value) }))}
               />
-              <label className="text-caption">Wall Thickness (px)</label>
+              <label className="text-caption">{t.editor.wallThickness}</label>
               <input
                 type="number"
                 className="input-field"
@@ -1209,9 +1246,9 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection title="FLOOR" isOpen={!collapsed['FLOOR']} onToggle={() => toggleSection('FLOOR')}>
+          <CollapsibleSection title={t.editor.floor} isOpen={!collapsed['FLOOR']} onToggle={() => toggleSection('FLOOR')}>
             <div className="flex-col gap-8">
-              <label className="text-caption">Floor Y</label>
+              <label className="text-caption">{t.editor.floorY}</label>
               <input
                 type="number"
                 className="input-field"
@@ -1221,7 +1258,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                   floor: { ...prev.floor, y: Number(event.target.value) }
                 }))}
               />
-              <label className="text-caption">Floor Inset</label>
+              <label className="text-caption">{t.editor.floorInset}</label>
               <input
                 type="number"
                 className="input-field"
@@ -1234,18 +1271,18 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection title="WALLS" isOpen={!collapsed['WALLS']} onToggle={() => toggleSection('WALLS')}>
+          <CollapsibleSection title={t.editor.walls} isOpen={!collapsed['WALLS']} onToggle={() => toggleSection('WALLS')}>
             <p className="text-caption" style={{ marginTop: '-8px', marginBottom: '12px', opacity: 0.7, fontStyle: 'italic' }}>
-              Normalized coordinates (0.0 - 1.0)
+              {t.editor.wallsHint}
             </p>
-            <div className="btn-group-toggle" role="group" aria-label="Wall mode">
+            <div className="btn-group-toggle" role="group" aria-label={t.editor.wallModeLabel}>
               {['OFF', 'DRAW', 'EDIT'].map((mode) => (
                 <button
                   key={mode}
                   className={`btn btn-outline${wallMode === mode ? ' btn-toggle-active' : ''}`}
                   onClick={() => setWallMode(mode)}
                 >
-                  {mode}
+                  {t.editor.wallModes[mode]}
                 </button>
               ))}
             </div>
@@ -1253,9 +1290,9 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
               {['left', 'right'].map((side) => (
                 <div key={side}>
                   <div className="flex-row justify-between items-center">
-                    <span className="text-caption">{side.toUpperCase()}</span>
+                    <span className="text-caption">{side === 'left' ? t.editor.left : t.editor.right}</span>
                     <button className="btn btn-outline" onClick={() => addWallPoint(side)} style={{ height: '28px', padding: '0 8px' }}>
-                      ADD
+                      {t.editor.add}
                     </button>
                   </div>
                   {blueprint.walls[side].map((point, index) => (
@@ -1273,7 +1310,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                         onChange={(event) => updateWallPoint(side, index, { y: Number(event.target.value) })}
                       />
                       <button className="btn btn-outline" onClick={() => removeWallPoint(side, index)} style={{ height: '28px', padding: '0 8px' }}>
-                        DEL
+                        {t.editor.deleteShort}
                       </button>
                     </div>
                   ))}
@@ -1282,17 +1319,17 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
 
               <div>
                 <div className="flex-row justify-between items-center">
-                  <span className="text-caption">INTERNAL</span>
+                  <span className="text-caption">{t.editor.internal}</span>
                   <button className="btn btn-outline" onClick={addInternalWall} style={{ height: '28px', padding: '0 8px' }}>
-                    ADD LINE
+                    {t.editor.addLine}
                   </button>
                 </div>
                 {blueprint.walls.internal.map((wall, wallIndex) => (
                   <div key={`internal-${wallIndex}`} className="card" style={{ padding: '8px', marginTop: '8px' }}>
                     <div className="flex-row justify-between items-center">
-                      <span className="text-caption">LINE {wallIndex + 1}</span>
+                      <span className="text-caption">{t.editor.lineLabel(wallIndex)}</span>
                       <button className="btn btn-outline" onClick={() => removeInternalWall(wallIndex)} style={{ height: '28px', padding: '0 8px' }}>
-                        REMOVE
+                        {t.editor.remove}
                       </button>
                     </div>
                     {wall.map((point, pointIndex) => (
@@ -1310,12 +1347,12 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                           onChange={(event) => updateInternalPoint(wallIndex, pointIndex, { y: Number(event.target.value) })}
                         />
                         <button className="btn btn-outline" onClick={() => removeInternalPoint(wallIndex, pointIndex)} style={{ height: '28px', padding: '0 8px' }}>
-                          DEL
+                          {t.editor.deleteShort}
                         </button>
                       </div>
                     ))}
                     <button className="btn btn-outline" onClick={() => addInternalPoint(wallIndex)} style={{ height: '28px', padding: '0 8px', marginTop: '6px' }}>
-                      ADD POINT
+                      {t.editor.addPoint}
                     </button>
                   </div>
                 ))}
@@ -1323,7 +1360,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection title="OBSTACLES" isOpen={!collapsed['OBSTACLES']} onToggle={() => toggleSection('OBSTACLES')}>
+          <CollapsibleSection title={t.editor.obstacles} isOpen={!collapsed['OBSTACLES']} onToggle={() => toggleSection('OBSTACLES')}>
             <div className="flex-col gap-8">
               {blueprint.obstacles.map((obstacle, index) => (
                 <button
@@ -1335,7 +1372,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                     <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center' }}>
                       {TOOL_ICONS[obstacle.type]}
                     </div>
-                    <span>{obstacle.type}</span>
+                    <span>{t.editor.toolNames[obstacle.type]}</span>
                   </div>
                   <span className="text-caption">#{index + 1}</span>
                 </button>
@@ -1344,25 +1381,25 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
             {selectedObstacle && (
               <div className="card" style={{ padding: '8px', marginTop: '12px' }}>
                 <div className="flex-row justify-between items-center" style={{ marginBottom: '6px' }}>
-                  <span className="text-caption">PROPERTIES</span>
+                  <span className="text-caption">{t.editor.properties}</span>
                   <div className="flex-row gap-6">
                     <button
                       className="btn btn-outline"
                       onClick={() => cloneObstacle(selectedObstacleIndex)}
                       style={{ height: '28px', padding: '0 8px' }}
                     >
-                      CLONE
+                      {t.editor.clone}
                     </button>
                     <button
                       className="btn btn-outline"
                       onClick={() => removeObstacle(selectedObstacleIndex)}
                       style={{ height: '28px', padding: '0 8px' }}
                     >
-                      DELETE
+                      {t.editor.delete}
                     </button>
                   </div>
                 </div>
-                <label className="text-caption">Type</label>
+                <label className="text-caption">{t.editor.type}</label>
                 <select
                   className="input-field"
                   value={selectedObstacle.type}
@@ -1372,17 +1409,17 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
                   }}
                 >
                   {TOOL_OPTIONS.map((tool) => (
-                    <option key={tool} value={tool}>{tool}</option>
+                    <option key={tool} value={tool}>{t.editor.toolNames[tool]}</option>
                   ))}
                 </select>
-                <label className="text-caption">X</label>
+                <label className="text-caption">{t.editor.x}</label>
                 <input
                   type="number"
                   className="input-field"
                   value={selectedObstacle.x}
                   onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { x: Number(event.target.value) })}
                 />
-                <label className="text-caption">Y</label>
+                <label className="text-caption">{t.editor.y}</label>
                 <input
                   type="number"
                   className="input-field"
@@ -1392,7 +1429,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
 
                 {(selectedObstacle.type === 'peg' || selectedObstacle.type === 'bumper') && (
                   <>
-                    <label className="text-caption">Radius</label>
+                    <label className="text-caption">{t.editor.radius}</label>
                     <input
                       type="number"
                       className="input-field"
@@ -1404,14 +1441,14 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
 
                 {selectedObstacle.type !== 'peg' && selectedObstacle.type !== 'bumper' && selectedObstacle.type !== 'wind' && (
                   <>
-                    <label className="text-caption">Length (px)</label>
+                    <label className="text-caption">{t.editor.length}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.length}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { length: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Angle (rad)</label>
+                    <label className="text-caption">{t.editor.angle}</label>
                     <input
                       type="number"
                       className="input-field"
@@ -1423,7 +1460,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
 
                 {(selectedObstacle.type === 'spinner' || selectedObstacle.type === 'hammer') && (
                   <>
-                    <label className="text-caption">Angular Velocity</label>
+                    <label className="text-caption">{t.editor.angularVelocity}</label>
                     <input
                       type="number"
                       className="input-field"
@@ -1435,14 +1472,14 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
 
                 {selectedObstacle.type === 'slider' && (
                   <>
-                    <label className="text-caption">Range (px)</label>
+                    <label className="text-caption">{t.editor.range}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.range}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { range: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Speed</label>
+                    <label className="text-caption">{t.editor.speed}</label>
                     <input
                       type="number"
                       className="input-field"
@@ -1454,49 +1491,49 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
 
                 {selectedObstacle.type === 'wind' && (
                   <>
-                    <label className="text-caption">Width (px)</label>
+                    <label className="text-caption">{t.editor.widthLabel}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.width}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { width: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Height (px)</label>
+                    <label className="text-caption">{t.editor.heightLabel}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.height}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { height: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Min Force X</label>
+                    <label className="text-caption">{t.editor.minForceX}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.minForceX}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { minForceX: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Max Force X</label>
+                    <label className="text-caption">{t.editor.maxForceX}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.maxForceX}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { maxForceX: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Min Force Y</label>
+                    <label className="text-caption">{t.editor.minForceY}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.minForceY}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { minForceY: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Max Force Y</label>
+                    <label className="text-caption">{t.editor.maxForceY}</label>
                     <input
                       type="number"
                       className="input-field"
                       value={selectedObstacle.maxForceY}
                       onChange={(event) => updateObstacleWithHistory(selectedObstacleIndex, { maxForceY: Number(event.target.value) })}
                     />
-                    <label className="text-caption">Interval (ms)</label>
+                    <label className="text-caption">{t.editor.interval}</label>
                     <input
                       type="number"
                       className="input-field"
@@ -1516,9 +1553,9 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
           <div className="test-hud-overlay">
             <div className="test-controls-card card">
               <span className="status-dot" />
-              <span className="text-caption">Testing Mode</span>
+              <span className="text-caption">{t.editor.testingMode}</span>
               <button className="btn btn-outline" onClick={() => setIsTesting(false)}>
-                STOP & EDIT
+                {t.editor.stopEdit}
               </button>
             </div>
           </div>
@@ -1529,6 +1566,7 @@ export function EditorScreen({ apiBase, maps, onRefreshMaps, onBack }) {
               lastSpawnEvent={null}
               onBack={() => setIsTesting(false)}
               mapBlueprint={blueprint}
+              t={t}
             />
           </div>
         </div>

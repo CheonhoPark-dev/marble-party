@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 const COOLDOWN_DURATION_MS = 4000
 
-export function ControllerScreen({ assignment, cooldownUntil = 0, onAction }) {
+export function ControllerScreen({ assignment, cooldownUntil = 0, onAction, t }) {
   const [isPressed, setIsPressed] = useState(false)
   const [cooldownMs, setCooldownMs] = useState(0)
 
@@ -32,8 +32,8 @@ export function ControllerScreen({ assignment, cooldownUntil = 0, onAction }) {
   return (
     <div className="screen-container justify-center" style={{ background: 'var(--color-surface)' }}>
       <header className="text-center mb-32 animate-enter">
-        <h1 className="text-display mb-8">CONTROLLER</h1>
-        <p className="text-h2" style={{ color: 'var(--color-text-muted)' }}>DROP THE OBSTACLE!</p>
+        <h1 className="text-display mb-8">{t.controller.title}</h1>
+        <p className="text-h2" style={{ color: 'var(--color-text-muted)' }}>{t.controller.subtitle}</p>
       </header>
 
       <div className="flex-center animate-slide-up" style={{ width: '100%', flex: 1, paddingBottom: '40px' }}>
@@ -98,11 +98,11 @@ export function ControllerScreen({ assignment, cooldownUntil = 0, onAction }) {
                   {assignment.nickname}
                 </span>
                 <span style={{ fontSize: '18px', fontWeight: '600', opacity: 0.9 }}>
-                  {showCooldown ? 'RECHARGING' : 'GO!'}
+                  {showCooldown ? t.controller.recharging : t.controller.go}
                 </span>
               </>
             ) : (
-              <span style={{ fontSize: '24px', color: 'var(--color-text-muted)' }}>Waiting...</span>
+              <span style={{ fontSize: '24px', color: 'var(--color-text-muted)' }}>{t.controller.waiting}</span>
             )}
           </button>
         </div>
@@ -110,7 +110,7 @@ export function ControllerScreen({ assignment, cooldownUntil = 0, onAction }) {
 
       {showCooldown && (
         <div className="text-caption" style={{ fontWeight: 700, letterSpacing: '0.08em' }}>
-          READY IN {cooldownLabel}s
+          {t.controller.readyIn(cooldownLabel)}
         </div>
       )}
     </div>

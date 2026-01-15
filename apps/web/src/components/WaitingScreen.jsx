@@ -1,4 +1,4 @@
-export function WaitingScreen({ playerName, participantCount, onLeave, onFeedback }) {
+export function WaitingScreen({ playerName, participantCount, onLeave, onFeedback, t }) {
   return (
     <div className="screen-container justify-center">
       
@@ -22,37 +22,37 @@ export function WaitingScreen({ playerName, participantCount, onLeave, onFeedbac
         >
           ✓
         </div>
-        <h1 className="text-display mb-8">YOU'RE IN!</h1>
+        <h1 className="text-display mb-8">{t.waiting.title}</h1>
         <p className="text-h1" style={{ color: 'var(--color-primary)' }}>
-          {playerName || "Guest"}
+          {playerName || t.waiting.guest}
         </p>
       </div>
 
       <div className="card mb-24 animate-slide-up" style={{ animationDelay: '0.1s' }}>
         <div className="flex-row justify-between items-center mb-16">
           <div className="badge badge-waiting">
-            STATUS: READY
+            {t.waiting.statusReady}
           </div>
           <div className="text-caption font-bold">
-            {participantCount} JOINED
+            {t.waiting.joinedCount(participantCount)}
           </div>
         </div>
         <p className="text-body text-center">
-          Wait for the host to start the game.
+          {t.waiting.waitHost}
           <br/>
-          <strong style={{ color: 'var(--color-secondary-dark)' }}>Watch the big screen!</strong>
+          <strong style={{ color: 'var(--color-secondary-dark)' }}>{t.waiting.watchScreen}</strong>
         </p>
       </div>
       
       <div className="mb-24 text-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
          <button className="btn-ghost" onClick={onFeedback}>
-           Is this game fair? Give feedback
+           {t.waiting.feedback}
          </button>
       </div>
 
       <div className="mt-auto animate-slide-up" style={{ animationDelay: '0.3s' }}>
         <button className="btn btn-outline" onClick={onLeave}>
-          LEAVE ROOM
+          {t.waiting.leave}
         </button>
       </div>
     </div>

@@ -159,7 +159,7 @@ const getCloudBasePosition = (layout, bounds, index) => {
   return { x: baseX, y: baseY }
 }
 
-const WinnerOverlay = ({ winner, onBack, onClose }) => {
+const WinnerOverlay = ({ winner, onBack, onClose, t }) => {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -268,18 +268,18 @@ const WinnerOverlay = ({ winner, onBack, onClose }) => {
         }}
       />
       <div className="modal-content winner-card" style={{ zIndex: 1, position: 'relative' }}>
-        <button className="modal-close-btn" onClick={onClose} aria-label="Close winner screen">
+        <button className="modal-close-btn" onClick={onClose} aria-label={t.game.closeWinner}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-        <div className="winner-label">1등</div>
+        <div className="winner-label">{t.game.winnerRank}</div>
         <div className="winner-chip" style={{ backgroundColor: winner.color || 'var(--color-secondary)' }} />
-        <div className="winner-name">{winner.name || 'Marble'}</div>
+        <div className="winner-name">{winner.name || t.game.winnerDefault}</div>
         <div className="winner-actions">
           <button className="btn btn-primary" onClick={onBack} style={{ minWidth: '200px' }}>
-            STOP PARTY
+            {t.game.stopParty}
           </button>
         </div>
       </div>
@@ -292,7 +292,8 @@ export function GameScreen({
   assignments = {},
   lastSpawnEvent,
   onBack,
-  mapBlueprint: mapOverride
+  mapBlueprint: mapOverride,
+  t
 }) {
   const sceneRef = useRef(null)
   const engineRef = useRef(null)
@@ -337,13 +338,13 @@ export function GameScreen({
       setRankings(sorted.map((b, i) => ({
         id: b.id,
         rank: i + 1,
-        name: b.customName || 'Marble',
+        name: b.customName || t.game.winnerDefault,
         color: b.render?.fillStyle
       })))
     }, 500)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     winnerRef.current = null
@@ -921,7 +922,7 @@ export function GameScreen({
       }
       const winnerData = {
         id: marble.id,
-        name: marble.customName || 'Marble',
+        name: marble.customName || t.game.winnerDefault,
         color: marble.render?.fillStyle
       }
       winnerRef.current = winnerData
@@ -2148,6 +2149,7 @@ export function GameScreen({
           winner={winner}
           onBack={onBack}
           onClose={() => setShowWinnerOverlay(false)}
+          t={t}
         />
       )}
     </div>

@@ -16,7 +16,8 @@ export function HostScreen({
   selectedMapId,
   selectedMapBlueprint,
   onMapChange,
-  onOpenEditor
+  onOpenEditor,
+  t
 }) {
   const canvasRef = useRef(null)
 
@@ -109,11 +110,11 @@ export function HostScreen({
     <div className="screen-container">
       <header className="text-center mb-24 animate-enter">
         <h1 className="text-h1 mb-8">MARBLE PARTY</h1>
-        <div className="badge badge-waiting">LOBBY OPEN</div>
+        <div className="badge badge-waiting">{t.host.lobbyOpen}</div>
       </header>
 
       <div className="card text-center mb-24 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-        <h3 className="text-h2 mb-16">JOIN ROOM</h3>
+        <h3 className="text-h2 mb-16">{t.host.joinRoom}</h3>
 
         <div className="room-code-display">
           {roomCode}
@@ -121,48 +122,48 @@ export function HostScreen({
 
         <div className="qr-container">
           {qrDataUrl ? (
-            <img src={qrDataUrl} alt={`QR Code for room ${roomCode}`} width="200" height="200" style={{ display: 'block' }} />
+            <img src={qrDataUrl} alt={t.host.qrAlt(roomCode)} width="200" height="200" style={{ display: 'block' }} />
           ) : (
             <div className="flex-center" style={{ width: '200px', height: '200px', color: 'var(--color-text-muted)' }}>
-              Generating...
+              {t.host.generating}
             </div>
           )}
         </div>
 
         <p className="text-caption">
-          {joinUrl ? joinUrl : 'Scan to join instantly'}
+          {joinUrl ? joinUrl : t.host.scanToJoin}
         </p>
       </div>
 
       <div className="animate-slide-up" style={{ animationDelay: '0.2s', flex: 1 }}>
         <div className="flex-row justify-between items-center mb-16">
-          <h3 className="text-h2" style={{ margin: 0 }}>RACERS</h3>
+          <h3 className="text-h2" style={{ margin: 0 }}>{t.host.racers}</h3>
           <span className="badge badge-ready">
-            {participantCount} JOINED · {readyCount} READY
+            {t.host.joinedReady(participantCount, readyCount)}
           </span>
         </div>
 
         <div className="player-list">
           {Array.from({ length: participantCount }).map((_, index) => (
             <div key={index} className="player-chip">
-              Racer #{index + 1}
+              {t.host.racerLabel(index)}
             </div>
           ))}
           <div className="player-chip" style={{ borderStyle: 'dashed', color: 'var(--color-text-muted)', background: 'transparent', borderColor: 'var(--color-text-muted)' }}>
-            Waiting...
+            {t.host.waiting}
           </div>
         </div>
       </div>
 
       <div className="card mb-16 animate-slide-up" style={{ animationDelay: '0.25s', padding: 'var(--space-16)' }}>
         <div className="flex-row justify-between items-center mb-8">
-          <h3 className="text-h3" style={{ margin: 0 }}>MAP SELECTION</h3>
+          <h3 className="text-h3" style={{ margin: 0 }}>{t.host.mapSelection}</h3>
           <button
             className="btn btn-outline"
             onClick={onOpenEditor}
             style={{ height: '36px', fontSize: '14px', padding: '0 12px' }}
           >
-            EDIT MAPS
+            {t.host.editMaps}
           </button>
         </div>
         <select
@@ -204,7 +205,7 @@ export function HostScreen({
                 fontSize: '13px',
                 fontWeight: 500
               }}>
-                Select a map to preview
+                {t.host.selectMapPreview}
               </div>
             )}
           </div>
@@ -217,7 +218,7 @@ export function HostScreen({
           value={candidateText}
           onChange={(e) => onCandidateChange(e.target.value)}
           onBlur={onCandidateBlur}
-          placeholder="추첨 대상 (쉼표/줄바꿈, *숫자 가능)"
+          placeholder={t.host.candidatePlaceholder}
           style={{
             height: '80px',
             resize: 'none',
@@ -233,7 +234,7 @@ export function HostScreen({
           disabled={!isWsReady}
           style={{ width: 'auto', minWidth: '180px', height: '80px' }}
         >
-          START RACE
+          {t.host.startRace}
         </button>
       </div>
       {error && (
@@ -243,7 +244,7 @@ export function HostScreen({
       )}
       {!error && !isWsReady && (
         <p className="text-caption text-center" style={{ marginTop: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
-          Connecting to the race server...
+          {t.host.connecting}
         </p>
       )}
     </div>

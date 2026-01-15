@@ -6,7 +6,7 @@ import {
   ROOM_CODE_LENGTH,
 } from '@repo/internal-utils'
 
-export function JoinScreen({ initialCode, onJoin, isBusy, error }) {
+export function JoinScreen({ initialCode, onJoin, isBusy, error, t }) {
   const [name, setName] = useState('')
   const [code, setCode] = useState(normalizeRoomCode(initialCode || ''))
 
@@ -16,23 +16,23 @@ export function JoinScreen({ initialCode, onJoin, isBusy, error }) {
       onJoin(trimmedName, code)
       return
     }
-    alert('Please enter a nickname and a 4-digit room code.')
+    alert(t.errors.joinValidation)
   }
 
   return (
     <div className="screen-container justify-center">
       <header className="text-center mb-32 animate-enter">
-        <h1 className="text-display mb-8">JOIN PARTY</h1>
-        <p className="text-h2" style={{ color: 'var(--color-text-muted)' }}>Enter your details to jump in!</p>
+        <h1 className="text-display mb-8">{t.join.title}</h1>
+        <p className="text-h2" style={{ color: 'var(--color-text-muted)' }}>{t.join.subtitle}</p>
       </header>
 
       <div className="card flex-col gap-24 animate-slide-up" style={{ animationDelay: '0.1s' }}>
         <div>
-          <label className="input-label">NICKNAME</label>
+          <label className="input-label">{t.join.nicknameLabel}</label>
           <input
             type="text"
             className="input-field"
-            placeholder="e.g. Lucky Star"
+            placeholder={t.join.nicknamePlaceholder}
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={MAX_DISPLAY_NAME_LENGTH}
@@ -40,11 +40,11 @@ export function JoinScreen({ initialCode, onJoin, isBusy, error }) {
         </div>
 
         <div>
-          <label className="input-label">ROOM CODE</label>
+          <label className="input-label">{t.join.roomCodeLabel}</label>
           <input
             type="tel"
             className="input-field"
-            placeholder="0000"
+            placeholder={t.join.roomCodePlaceholder}
             maxLength={ROOM_CODE_LENGTH}
             value={code}
             onChange={(e) => setCode(normalizeRoomCode(e.target.value))}
@@ -57,8 +57,8 @@ export function JoinScreen({ initialCode, onJoin, isBusy, error }) {
           onClick={handleJoin}
           disabled={isBusy || !name || !isValidRoomCode(code)}
           style={{ marginTop: 'var(--space-8)' }}
-        >
-          ENTER ROOM
+>
+          {t.join.enterRoom}
         </button>
         {error && (
           <p className="text-caption text-center" style={{ color: 'var(--color-error)' }}>
