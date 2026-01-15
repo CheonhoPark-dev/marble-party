@@ -106,6 +106,8 @@ const KICKER_COOLDOWN = 180
 const KICKER_ACTIVE_FORCE_X = 0.003
 const KICKER_ACTIVE_FORCE_Y = 0.009
 const KICKER_ACTIVE_INTERVAL = 60
+const BUMPER_FORCE = 0.012
+const BUMPER_COOLDOWN = 140
 
 const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
 const resolveMapValue = (value, size, scale) => {
@@ -315,6 +317,7 @@ export function GameScreen({
   const stuckTrackerRef = useRef(new Map())
   const kickerCooldownRef = useRef(new Map())
   const kickerActiveRef = useRef(new Map())
+  const bumperCooldownRef = useRef(new Map())
   const effectsRef = useRef([])
   const slidersRef = useRef([])
   const mapSignatureRef = useRef('')
@@ -950,6 +953,27 @@ export function GameScreen({
           }
         }
 
+        const bumper = bodyA.isBumper ? bodyA : bodyB.isBumper ? bodyB : null
+        if (bumper) {
+          const marble = bumper === bodyA ? bodyB : bodyA
+          if (marble.label && marble.label.startsWith('marble-')) {
+            const bumpers = bumperCooldownRef.current
+            const lastBump = bumpers.get(marble.id) ?? 0
+            if (now - lastBump >= BUMPER_COOLDOWN) {
+              const dx = marble.position.x - bumper.position.x
+              const dy = marble.position.y - bumper.position.y
+              const distance = Math.hypot(dx, dy) || 1
+              const impulse = BUMPER_FORCE * 1600
+              Matter.Sleeping.set(marble, false)
+              Matter.Body.setVelocity(marble, {
+                x: marble.velocity.x + (dx / distance) * impulse,
+                y: marble.velocity.y + (dy / distance) * impulse
+              })
+              bumpers.set(marble.id, now)
+            }
+          }
+        }
+
         const kicker = bodyA.isKicker ? bodyA : bodyB.isKicker ? bodyB : null
         if (!kicker) {
           return
@@ -1306,6 +1330,26 @@ export function GameScreen({
           const { x, y } = body.position
           const text = body.customName || ''
 
+          if (text === '천호') {
+            const crownBaseY = y - 32
+            context.save()
+            context.fillStyle = '#F6B500'
+            context.strokeStyle = theme.surface
+            context.lineWidth = 2
+            context.beginPath()
+            context.moveTo(x - 7, crownBaseY)
+            context.lineTo(x - 10, crownBaseY - 10)
+            context.lineTo(x - 3.5, crownBaseY - 5)
+            context.lineTo(x, crownBaseY - 13)
+            context.lineTo(x + 3.5, crownBaseY - 5)
+            context.lineTo(x + 10, crownBaseY - 10)
+            context.lineTo(x + 7, crownBaseY)
+            context.closePath()
+            context.stroke()
+            context.fill()
+            context.restore()
+          }
+
           context.strokeText(text, x, y - 22)
           context.fillStyle = theme.text
           context.fillText(text, x, y - 22)
@@ -1620,6 +1664,7 @@ export function GameScreen({
             strokeStyle: 'transparent'
           }
         })
+        peg.isBumper = item.type === 'bumper'
         registerObstacle(peg)
         return
       }
