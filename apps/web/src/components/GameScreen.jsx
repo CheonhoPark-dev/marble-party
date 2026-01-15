@@ -28,81 +28,67 @@ const OBSTACLE_TTL = {
 // Values greater than 1 are treated as base units and scaled with width.
 const MAP_BLUEPRINT = {
   width: 1400,
-  height: 5600,
-  wallThickness: 56,
-  floor: { y: 1, inset: 0.1 },
+  height: 8400,
+  wallThickness: 60,
+  floor: { y: 1, inset: 0.12 },
   walls: {
     left: [
-      { x: 0.05, y: 0.0 },
-      { x: 0.05, y: 0.08 },
-      { x: 0.35, y: 0.22 },
-      { x: 0.05, y: 0.42 },
-      { x: 0.38, y: 0.62 },
-      { x: 0.05, y: 0.82 },
-      { x: 0.42, y: 1.0 }
+      { x: 0.02, y: 0.0 },
+      { x: 0.02, y: 0.10 },
+      { x: 0.15, y: 0.20 },
+      { x: 0.05, y: 0.35 },
+      { x: 0.15, y: 0.50 },
+      { x: 0.05, y: 0.65 },
+      { x: 0.20, y: 0.85 },
+      { x: 0.40, y: 1.0 }
     ],
     right: [
-      { x: 0.95, y: 0.0 },
-      { x: 0.95, y: 0.08 },
-      { x: 0.90, y: 0.22 },
-      { x: 0.60, y: 0.42 },
-      { x: 0.95, y: 0.62 },
-      { x: 0.62, y: 0.82 },
-      { x: 0.58, y: 1.0 }
+      { x: 0.98, y: 0.0 },
+      { x: 0.98, y: 0.10 },
+      { x: 0.85, y: 0.20 },
+      { x: 0.95, y: 0.35 },
+      { x: 0.85, y: 0.50 },
+      { x: 0.95, y: 0.65 },
+      { x: 0.80, y: 0.85 },
+      { x: 0.60, y: 1.0 }
     ],
-    internal: [
-      [
-        { x: 0.70, y: 0.23 },
-        { x: 0.50, y: 0.20 }
-      ],
-      [
-        { x: 0.35, y: 0.45 },
-        { x: 0.15, y: 0.40 }
-      ],
-      [
-        { x: 0.85, y: 0.60 },
-        { x: 0.65, y: 0.65 }
-      ]
-    ]
+    internal: []
   },
   obstacles: [
-    { type: 'ramp', x: 0.20, y: 0.05, length: 0.30, angle: 0.45 },
-    { type: 'ramp', x: 0.80, y: 0.05, length: 0.30, angle: -0.45 },
+    { type: 'peg', x: 0.25, y: 0.05, radius: 0.01 },
+    { type: 'peg', x: 0.50, y: 0.05, radius: 0.01 },
+    { type: 'peg', x: 0.75, y: 0.05, radius: 0.01 },
+    { type: 'peg', x: 0.37, y: 0.09, radius: 0.01 },
+    { type: 'peg', x: 0.63, y: 0.09, radius: 0.01 },
 
-    { type: 'peg', x: 0.20, y: 0.12, radius: 0.008 },
-    { type: 'peg', x: 0.40, y: 0.12, radius: 0.008 },
-    { type: 'peg', x: 0.60, y: 0.12, radius: 0.008 },
-    { type: 'peg', x: 0.80, y: 0.12, radius: 0.008 },
+    { type: 'spinner', x: 0.30, y: 0.16, length: 0.22, angularVelocity: 0.3 },
+    { type: 'spinner', x: 0.70, y: 0.16, length: 0.22, angularVelocity: -0.3 },
 
-    { type: 'peg', x: 0.30, y: 0.18, radius: 0.008 },
-    { type: 'peg', x: 0.50, y: 0.18, radius: 0.008 },
-    { type: 'peg', x: 0.70, y: 0.18, radius: 0.008 },
+    { type: 'ramp', x: 0.15, y: 0.24, length: 0.28, angle: 0.55 },
+    { type: 'ramp', x: 0.85, y: 0.28, length: 0.28, angle: -0.55 },
+    { type: 'ramp', x: 0.20, y: 0.34, length: 0.30, angle: 0.50 },
 
-    { type: 'peg', x: 0.35, y: 0.28, radius: 0.008 },
-    { type: 'peg', x: 0.55, y: 0.28, radius: 0.008 },
-    { type: 'peg', x: 0.75, y: 0.28, radius: 0.008 },
+    { type: 'kicker-once', x: 0.50, y: 0.42, length: 0.16, angle: 0 },
+    { type: 'kicker-once', x: 0.30, y: 0.44, length: 0.14, angle: 0.3 },
+    { type: 'kicker-once', x: 0.70, y: 0.44, length: 0.14, angle: -0.3 },
 
-    { type: 'peg', x: 0.30, y: 0.32, radius: 0.008 },
-    { type: 'peg', x: 0.50, y: 0.32, radius: 0.008 },
-    { type: 'peg', x: 0.65, y: 0.32, radius: 0.008 },
+    { type: 'wind', x: 0.30, y: 0.55, width: 0.30, height: 0.14, minForceX: 0.0015, maxForceX: 0.0025, minForceY: -0.001, maxForceY: 0.001, interval: 500 },
+    { type: 'wind', x: 0.70, y: 0.55, width: 0.30, height: 0.14, minForceX: -0.0025, maxForceX: -0.0015, minForceY: -0.001, maxForceY: 0.001, interval: 500 },
+    { type: 'peg', x: 0.50, y: 0.55, radius: 0.015 },
 
-    { type: 'peg', x: 0.50, y: 0.45, radius: 0.008 },
-    { type: 'peg', x: 0.60, y: 0.45, radius: 0.008 },
+    { type: 'slider', x: 0.50, y: 0.65, length: 0.25, thickness: 16, range: 0.20, speed: 1.1 },
+    { type: 'peg', x: 0.20, y: 0.68, radius: 0.012 },
+    { type: 'peg', x: 0.80, y: 0.68, radius: 0.012 },
 
-    { type: 'peg', x: 0.30, y: 0.50, radius: 0.008 },
-    { type: 'peg', x: 0.70, y: 0.50, radius: 0.008 },
+    { type: 'wind', x: 0.50, y: 0.76, width: 0.40, height: 0.15, minForceX: -0.0005, maxForceX: 0.0005, minForceY: -0.0022, maxForceY: -0.0012, interval: 800 },
 
-    { type: 'spinner', x: 0.50, y: 0.54, length: 0.40, angularVelocity: 0.3 },
+    { type: 'ramp', x: 0.15, y: 0.84, length: 0.20, angle: 0.7 },
+    { type: 'ramp', x: 0.85, y: 0.84, length: 0.20, angle: -0.7 },
 
-    { type: 'peg', x: 0.45, y: 0.65, radius: 0.008 },
-    { type: 'peg', x: 0.55, y: 0.65, radius: 0.008 },
+    { type: 'kicker-once', x: 0.40, y: 0.90, length: 0.14, angle: -0.6 },
+    { type: 'kicker-once', x: 0.60, y: 0.90, length: 0.14, angle: 0.6 },
 
-    { type: 'kicker', x: 0.40, y: 0.75, length: 0.22, angle: -0.6 },
-    { type: 'kicker', x: 0.60, y: 0.75, length: 0.10, angle: 0.6 },
-
-    { type: 'peg', x: 0.30, y: 0.85, radius: 0.008 },
-    { type: 'peg', x: 0.50, y: 0.85, radius: 0.008 },
-    { type: 'peg', x: 0.50, y: 0.92, radius: 0.01 }
+    { type: 'spinner', x: 0.50, y: 0.96, length: 0.18, angularVelocity: 0.8 }
   ]
 }
 
@@ -305,12 +291,14 @@ export function GameScreen({
   candidates = [],
   assignments = {},
   lastSpawnEvent,
-  onBack
+  onBack,
+  mapBlueprint: mapOverride
 }) {
   const sceneRef = useRef(null)
   const engineRef = useRef(null)
   const renderRef = useRef(null)
   const runnerRef = useRef(null)
+  const mapBlueprint = mapOverride || MAP_BLUEPRINT
   const spawnedRef = useRef(0)
   const leaderRef = useRef(null)
   const leaderPositionRef = useRef(null)
@@ -327,6 +315,8 @@ export function GameScreen({
   const kickerCooldownRef = useRef(new Map())
   const kickerActiveRef = useRef(new Map())
   const effectsRef = useRef([])
+  const slidersRef = useRef([])
+  const mapSignatureRef = useRef('')
   const winnerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [rankings, setRankings] = useState([])
@@ -555,9 +545,9 @@ export function GameScreen({
       Events = Matter.Events
 
     const { width: canvasWidth, height: canvasHeight } = dimensions
-    const mapScale = mapScaleRef.current ?? canvasWidth / MAP_BLUEPRINT.width
-    const worldWidth = MAP_BLUEPRINT.width * mapScale
-    const worldHeight = MAP_BLUEPRINT.height * mapScale
+    const mapScale = mapScaleRef.current ?? canvasWidth / mapBlueprint.width
+    const worldWidth = mapBlueprint.width * mapScale
+    const worldHeight = mapBlueprint.height * mapScale
     if (!mapScaleRef.current) {
       mapScaleRef.current = mapScale
       worldSizeRef.current = { width: worldWidth, height: worldHeight }
@@ -791,7 +781,7 @@ export function GameScreen({
       const now = Date.now()
 
       for (let i = windFields.length - 1; i >= 0; i -= 1) {
-        if (windFields[i].expiresAt <= now) {
+        if (windFields[i].expiresAt && windFields[i].expiresAt <= now) {
           windFields.splice(i, 1)
         }
       }
@@ -803,10 +793,19 @@ export function GameScreen({
       const bodies = Composite.allBodies(engine.world)
 
       windFields.forEach((field) => {
+        if (field.randomizeAt && field.randomizeAt <= now) {
+          field.forceX = randomBetween(field.minForceX ?? 0, field.maxForceX ?? 0)
+          field.forceY = randomBetween(field.minForceY ?? 0, field.maxForceY ?? 0)
+          const interval = field.interval ?? 900
+          field.randomizeAt = now + interval
+        }
+
         const minX = field.x - field.width / 2
         const maxX = field.x + field.width / 2
         const minY = field.y - field.height / 2
         const maxY = field.y + field.height / 2
+        const forceX = field.forceX ?? 0
+        const forceY = field.forceY ?? (field.strength != null ? -field.strength : 0)
 
         bodies.forEach((body) => {
           if (!body.label || !body.label.startsWith('marble-')) {
@@ -817,7 +816,7 @@ export function GameScreen({
             return
           }
           Matter.Sleeping.set(body, false)
-          Matter.Body.applyForce(body, body.position, { x: 0, y: -field.strength })
+          Matter.Body.applyForce(body, body.position, { x: forceX, y: forceY })
         })
       })
     }
@@ -880,6 +879,32 @@ export function GameScreen({
       })
     }
 
+    const updateSliders = () => {
+      const sliders = slidersRef.current
+      if (!sliders.length) {
+        return
+      }
+      sliders.forEach((slider) => {
+        if (!slider || slider.isRemoved) {
+          return
+        }
+        const originX = slider.sliderOriginX ?? slider.position.x
+        const range = slider.sliderRange ?? 0
+        if (!range) {
+          return
+        }
+        const minX = originX - range
+        const maxX = originX + range
+        const speed = slider.sliderSpeed ?? 0.9
+        let nextX = slider.position.x + speed * slider.sliderDirection
+        if (nextX < minX || nextX > maxX) {
+          slider.sliderDirection *= -1
+          nextX = clamp(nextX, minX, maxX)
+        }
+        Matter.Body.setPosition(slider, { x: nextX, y: slider.position.y })
+      })
+    }
+
     const updateWorld = (event) => {
       updateCamera()
       updateClouds()
@@ -887,6 +912,7 @@ export function GameScreen({
       applyWindForces()
       updateKickerVisuals()
       updateSpawnedObstacles()
+      updateSliders()
     }
 
     const recordWinner = (marble) => {
@@ -927,6 +953,9 @@ export function GameScreen({
         if (!kicker) {
           return
         }
+        if (kicker.oneTime && kicker.used) {
+          return
+        }
         const marble = kicker === bodyA ? bodyB : bodyA
         if (!marble.label || !marble.label.startsWith('marble-')) {
           return
@@ -951,6 +980,14 @@ export function GameScreen({
           y: Math.min(marble.velocity.y, 0) + kickDirY * KICKER_FORCE_Y * 1800
         })
         cooldowns.set(marble.id, now)
+
+        if (kicker.oneTime) {
+          kicker.used = true
+          const removeTimer = setTimeout(() => {
+            Composite.remove(engine.world, kicker)
+          }, 200)
+          registerTimer(removeTimer)
+        }
       })
     })
 
@@ -996,6 +1033,70 @@ export function GameScreen({
       }
 
       const now = Date.now()
+
+      const windFields = windFieldsRef.current
+      if (windFields.length) {
+        context.save()
+        windFields.forEach((field) => {
+          const { x, y, width, height } = field
+          const halfWidth = width / 2
+          const halfHeight = height / 2
+
+          context.fillStyle = 'rgba(52, 152, 219, 0.06)'
+          context.strokeStyle = 'rgba(52, 152, 219, 0.15)'
+          context.lineWidth = 1
+          context.beginPath()
+          if (context.roundRect) {
+            context.roundRect(x - halfWidth, y - halfHeight, width, height, 16)
+          } else {
+            context.rect(x - halfWidth, y - halfHeight, width, height)
+          }
+          context.fill()
+          context.stroke()
+
+          context.save()
+          context.beginPath()
+          context.rect(x - halfWidth, y - halfHeight, width, height)
+          context.clip()
+
+          const forceX = field.forceX ?? (field.minForceX + field.maxForceX) / 2
+          const forceY = field.forceY ?? (field.minForceY + field.maxForceY) / 2
+          const angle = Math.atan2(forceY, forceX)
+          const magnitude = Math.hypot(forceX, forceY)
+          const visualSpeed = Math.max(0.5, magnitude * 2500)
+
+          context.translate(x, y)
+          context.rotate(angle)
+
+          const diagonal = Math.hypot(width, height)
+          const halfDiagonal = diagonal / 2
+          const spacingX = 40
+          const spacingY = 24
+          const offset = (now * 0.12 * visualSpeed) % spacingX
+
+          context.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+          context.lineWidth = 2
+          context.lineCap = 'round'
+
+          for (let lineY = -halfDiagonal; lineY < halfDiagonal; lineY += spacingY) {
+            const stagger = Math.abs(lineY) % (spacingY * 2) === 0 ? 0 : spacingX / 2
+            for (let lineX = -halfDiagonal; lineX < halfDiagonal; lineX += spacingX) {
+              const drawX = lineX + offset + stagger
+              if (drawX > halfDiagonal) {
+                continue
+              }
+              context.beginPath()
+              context.moveTo(drawX, lineY)
+              context.lineTo(drawX + 12, lineY)
+              context.stroke()
+            }
+          }
+
+          context.restore()
+          context.restore()
+        })
+        context.restore()
+      }
       
       const effects = effectsRef.current
       for (let i = effects.length - 1; i >= 0; i--) {
@@ -1392,9 +1493,9 @@ export function GameScreen({
 
       context.restore()
     })
-    const wallThickness = toWidth(MAP_BLUEPRINT.wallThickness ?? 56, 56)
-    const floorSpec = MAP_BLUEPRINT.floor || {}
-    const hasFloor = MAP_BLUEPRINT.floor !== false && MAP_BLUEPRINT.floor !== null
+    const wallThickness = toWidth(mapBlueprint.wallThickness ?? 56, 56)
+    const floorSpec = mapBlueprint.floor || {}
+    const hasFloor = mapBlueprint.floor !== false && mapBlueprint.floor !== null
     const wallOptions = {
       isStatic: true,
       render: {
@@ -1420,6 +1521,7 @@ export function GameScreen({
     const obstacles = []
     const walls = []
     const constraints = []
+    slidersRef.current = []
     let obstacleIndex = 0
     const obstacleRestitution = 0.8
 
@@ -1459,7 +1561,7 @@ export function GameScreen({
       }
     }
 
-    const mapWalls = MAP_BLUEPRINT.walls || {}
+    const mapWalls = mapBlueprint.walls || {}
     addPolyline(mapWalls.left)
     addPolyline(mapWalls.right)
     if (Array.isArray(mapWalls.internal)) {
@@ -1494,7 +1596,7 @@ export function GameScreen({
       walls.push(finishLine)
     }
 
-    MAP_BLUEPRINT.obstacles.forEach((item) => {
+    mapBlueprint.obstacles.forEach((item) => {
       if (!item || !item.type) {
         return
       }
@@ -1505,15 +1607,15 @@ export function GameScreen({
         return
       }
 
-      if (item.type === 'peg') {
-        const radius = toWidth(item.radius, 6)
+      if (item.type === 'peg' || item.type === 'bumper') {
+        const radius = toWidth(item.radius, item.type === 'bumper' ? 16 : 6)
         const peg = Bodies.circle(x, y, radius, {
           isStatic: true,
-          restitution: obstacleRestitution,
+          restitution: item.type === 'bumper' ? 1.25 : obstacleRestitution,
           friction: 0.02,
           frictionStatic: 0,
           render: {
-            fillStyle: theme.text,
+            fillStyle: item.type === 'bumper' ? theme.secondary : theme.text,
             strokeStyle: 'transparent'
           }
         })
@@ -1546,8 +1648,79 @@ export function GameScreen({
         return
       }
 
-      if (item.type === 'ramp' || item.type === 'kicker') {
-        const isKicker = item.type === 'kicker'
+      if (item.type === 'hammer') {
+        const length = toWidth(item.length, 0.26)
+        const thickness = toWidth(item.thickness, 14)
+        const angle = item.angle ?? 0
+        const hammer = Bodies.rectangle(x, y, length, thickness, {
+          restitution: obstacleRestitution,
+          friction: 0.01,
+          frictionAir: 0.002,
+          density: 0.003,
+          render: {
+            fillStyle: theme.warning,
+            strokeStyle: 'transparent'
+          },
+          angle
+        })
+        hammer.angularVelocity = item.angularVelocity ?? 0.25
+        registerObstacle(hammer)
+
+        const pivotOffset = length / 2
+        const pivotX = x - Math.cos(angle) * pivotOffset
+        const pivotY = y - Math.sin(angle) * pivotOffset
+        constraints.push(Constraint.create({
+          pointA: { x: pivotX, y: pivotY },
+          bodyB: hammer,
+          pointB: { x: -pivotOffset, y: 0 },
+          length: 0,
+          stiffness: 1
+        }))
+        return
+      }
+
+      if (item.type === 'slider') {
+        const length = toWidth(item.length, 0.22)
+        const thickness = toWidth(item.thickness, 14)
+        const slider = Bodies.rectangle(x, y, length, thickness, {
+          isStatic: true,
+          friction: 0.02,
+          render: {
+            fillStyle: theme.secondary,
+            strokeStyle: theme.text,
+            lineWidth: 3
+          }
+        })
+        slider.sliderRange = toWidth(item.range, 0.18)
+        slider.sliderSpeed = item.speed ?? 0.9
+        slider.sliderDirection = Math.random() < 0.5 ? -1 : 1
+        slider.sliderOriginX = x
+        slidersRef.current.push(slider)
+        registerObstacle(slider)
+        return
+      }
+
+      if (item.type === 'wind') {
+        const width = toWidth(item.width, 0.24)
+        const height = toHeight(item.height, 0.12)
+        windFieldsRef.current.push({
+          x,
+          y,
+          width,
+          height,
+          minForceX: item.minForceX ?? -0.0012,
+          maxForceX: item.maxForceX ?? 0.0012,
+          minForceY: item.minForceY ?? -0.0012,
+          maxForceY: item.maxForceY ?? -0.0006,
+          interval: item.interval ?? 900,
+          randomizeAt: Date.now()
+        })
+        return
+      }
+
+      if (item.type === 'ramp' || item.type === 'kicker' || item.type === 'kicker-once') {
+        const isOneTime = item.type === 'kicker-once'
+        const isKicker = item.type === 'kicker' || isOneTime
         const length = toWidth(item.length, isKicker ? 0.18 : 0.58)
         const thickness = toWidth(item.thickness, isKicker ? 12 : 14)
         const angle = item.angle ?? 0
@@ -1574,6 +1747,7 @@ export function GameScreen({
           angle
         })
         ramp.isKicker = isKicker
+        ramp.oneTime = isOneTime
         registerObstacle(ramp)
       }
     })
@@ -1711,7 +1885,7 @@ export function GameScreen({
     const runner = Runner.create()
     runnerRef.current = runner
     Runner.run(runner, engine)
-  }, [dimensions.width, dimensions.height])
+  }, [dimensions.width, dimensions.height, mapBlueprint])
 
   useEffect(() => {
     if (!renderRef.current || dimensions.width === 0 || dimensions.height === 0) {
@@ -1724,43 +1898,54 @@ export function GameScreen({
     Matter.Render.setPixelRatio(render, window.devicePixelRatio)
   }, [dimensions.width, dimensions.height])
 
+  const shutdownEngine = () => {
+    if (!engineRef.current) {
+      return
+    }
+    const engine = engineRef.current
+    const render = renderRef.current
+    const runner = runnerRef.current
+
+    Matter.Events.off(engine)
+    if (render) {
+      Matter.Events.off(render)
+    }
+    clearObstacleTimers()
+    windFieldsRef.current = []
+    slidersRef.current = []
+    if (render) {
+      Matter.Render.stop(render)
+      if (render.canvas) render.canvas.remove()
+      render.canvas = null
+      render.context = null
+      render.textures = {}
+    }
+    if (runner) {
+      Matter.Runner.stop(runner)
+    }
+    Matter.World.clear(engine.world)
+    Matter.Engine.clear(engine)
+    engineRef.current = null
+    renderRef.current = null
+    runnerRef.current = null
+    mapScaleRef.current = null
+    worldSizeRef.current = null
+    viewSizeRef.current = null
+  }
+
   useEffect(() => {
     return () => {
-      if (!engineRef.current) {
-        return
-      }
-      const engine = engineRef.current
-      const render = renderRef.current
-      const runner = runnerRef.current
-
-      Matter.Events.off(engine)
-      if (render) {
-        Matter.Events.off(render)
-      }
-      clearObstacleTimers()
-      windFieldsRef.current = []
-      if (render) {
-        Matter.Render.stop(render)
-        if (render.canvas) render.canvas.remove()
-        render.canvas = null
-        render.context = null
-        render.textures = {}
-      }
-      if (runner) {
-        Matter.Runner.stop(runner)
-      }
-      Matter.World.clear(engine.world)
-      Matter.Engine.clear(engine)
-      engineRef.current = null
-      renderRef.current = null
-      runnerRef.current = null
-      mapScaleRef.current = null
-      worldSizeRef.current = null
-      viewSizeRef.current = null
+      shutdownEngine()
     }
   }, [])
 
-
+  useEffect(() => {
+    const signature = JSON.stringify(mapBlueprint)
+    if (mapSignatureRef.current && mapSignatureRef.current !== signature) {
+      shutdownEngine()
+    }
+    mapSignatureRef.current = signature
+  }, [mapBlueprint])
 
   useEffect(() => {
     if (!engineRef.current) return

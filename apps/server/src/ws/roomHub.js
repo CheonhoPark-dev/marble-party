@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws'
 import { getRoomById, updateRoomStatus } from '../store/room.js'
 import { getParticipantByToken, listParticipants, touchParticipant, getRoomStats } from '../store/participant.js'
+import { getMapById } from '../db/maps.js'
 
 const OBSTACLE_COLORS = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#A78BFA', '#34D399', '#F97316', '#38BDF8', '#F472B6']
 const OBSTACLE_TYPES = ['bomb', 'normal', 'spinner', 'fan']
@@ -146,11 +147,22 @@ export function attachRoomHub(server) {
     const assignments = buildAssignments(client.roomId)
     roomAssignments.set(client.roomId, assignments)
 
+    let mapPayload = null
+    const mapId = message?.mapId
+    if (mapId) {
+      const map = getMapById(mapId)
+      if (map?.payload) {
+        mapPayload = safeJsonParse(map.payload)
+      }
+    }
+
     broadcastToRoom(client.roomId, {
       type: 'game_started',
       roomId: client.roomId,
       candidates,
       assignments,
+      map: mapPayload,
+      mapId: mapId || null,
     })
 
     broadcastRoomState(client.roomId)

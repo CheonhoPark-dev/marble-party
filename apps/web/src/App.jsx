@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
 import './App.css'
 import { HostScreen } from './components/HostScreen'
 import { GameScreen } from './components/GameScreen'
@@ -7,10 +8,14 @@ import { JoinScreen } from './components/JoinScreen'
 import { WaitingScreen } from './components/WaitingScreen'
 import { RulesScreen } from './components/RulesScreen'
 import { FeedbackModal } from './components/FeedbackModal'
+import { EditorScreen } from './components/EditorScreen'
+
 import { normalizeRoomCode, sanitizeDisplayName } from '@repo/internal-utils'
 
 const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+const DEFAULT_MAP_ID = 'uuumToQcVnVK'
 const CANDIDATE_SPLIT_REGEX = /[\n,]+/g
+
 const CANDIDATE_COUNT_REGEX = /\*(\d+)$/
 
 function parseCandidateEntries(raw) {
@@ -106,12 +111,31 @@ function App() {
   const [lastSpawnEvent, setLastSpawnEvent] = useState(null)
   const [spawnCooldownUntil, setSpawnCooldownUntil] = useState(0)
   const [wsReady, setWsReady] = useState(false)
+  const [maps, setMaps] = useState([])
+  const [selectedMapId, setSelectedMapId] = useState('')
+  const [selectedMapBlueprint, setSelectedMapBlueprint] = useState(null)
+  const [editorReturnView, setEditorReturnView] = useState('home')
+
 
 
 
   const wsRef = useRef(null)
 
   const apiBase = useMemo(() => DEFAULT_API_BASE, [])
+
+  const loadMaps = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBase}/api/maps`)
+      if (!response.ok) {
+        return
+      }
+      const data = await response.json()
+      setMaps(Array.isArray(data.maps) ? data.maps : [])
+    } catch {
+      setMaps([])
+    }
+  }, [apiBase])
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -121,6 +145,43 @@ function App() {
       setView('join')
     }
   }, [])
+
+  useEffect(() => {
+    loadMaps()
+  }, [loadMaps])
+
+  useEffect(() => {
+    if (selectedMapId || maps.length === 0) {
+      return
+    }
+    const preferred = maps.find((map) => map.id === DEFAULT_MAP_ID)
+    setSelectedMapId(preferred?.id || maps[0]?.id || '')
+  }, [maps, selectedMapId])
+
+  useEffect(() => {
+    if (!selectedMapId) {
+      setSelectedMapBlueprint(null)
+      return
+    }
+    let cancelled = false
+    fetch(`${apiBase}/api/maps/${selectedMapId}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled) {
+          return
+        }
+        setSelectedMapBlueprint(data?.blueprint || null)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedMapBlueprint(null)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [apiBase, selectedMapId])
+
 
   useEffect(() => {
     if (!roomId || (!hostKey && !displayToken)) {
@@ -152,18 +213,20 @@ function App() {
         return
       }
 
-      if (message.type === 'game_started') {
-        const candidates = Array.isArray(message.candidates) ? message.candidates : []
-        const assignments = message.assignments || {}
-        setGameData({ candidates, assignments })
-        setLastSpawnEvent(null)
-        setSpawnCooldownUntil(0)
-        if (!hostKey) {
-          setAssignment(assignments[participantId] || null)
-        }
-        setView('game')
-        return
-      }
+       if (message.type === 'game_started') {
+         const candidates = Array.isArray(message.candidates) ? message.candidates : []
+         const assignments = message.assignments || {}
+         const mapBlueprint = message.map || null
+         setGameData({ candidates, assignments, map: mapBlueprint })
+         setLastSpawnEvent(null)
+         setSpawnCooldownUntil(0)
+         if (!hostKey) {
+           setAssignment(assignments[participantId] || null)
+         }
+         setView('game')
+         return
+       }
+
 
       if (message.type === 'spawned_obstacle') {
         setLastSpawnEvent({
@@ -232,6 +295,12 @@ function App() {
   const handleStartJoin = () => {
     setView('join')
   }
+
+  const handleOpenEditor = (returnView = 'home') => {
+    setEditorReturnView(returnView)
+    setView('editor')
+  }
+
 
   const handleJoinRoom = async (name, code) => {
     setIsBusy(true)
@@ -335,8 +404,10 @@ function App() {
       JSON.stringify({
         type: 'start_game',
         candidates,
+        mapId: selectedMapId || null,
       })
     )
+
   }
 
   const handleControllerAction = () => {
@@ -352,7 +423,8 @@ function App() {
   }
 
   return (
-    <div className={`app-container${view === 'game' && hostKey ? ' app-container--game' : ''}`}>
+    <div className={`app-container${(view === 'game' && hostKey) || view === 'editor' ? ' app-container--game' : ''}`}>
+
       {view === 'home' && (
         <div className="screen-container justify-center">
           <div className="logo-container animate-enter">
@@ -370,6 +442,9 @@ function App() {
               <button className="btn btn-secondary" onClick={handleStartHost} disabled={isBusy}>
                 HOST PARTY
               </button>
+              <button className="btn btn-outline" onClick={() => handleOpenEditor('home')} disabled={isBusy}>
+                MAP EDITOR
+              </button>
             </div>
             {joinError && (
               <p className="text-caption text-center" style={{ marginTop: 'var(--space-16)', color: 'var(--color-error)' }}>
@@ -382,6 +457,7 @@ function App() {
               </p>
             )}
           </div>
+
 
           <section className="card seo-section animate-slide-up" style={{ animationDelay: '0.2s' }}>
             <h2>마블 파티란?</h2>
@@ -405,21 +481,37 @@ function App() {
         </div>
       )}
 
-      {view === 'host' && (
-        <HostScreen
-          roomCode={roomCode}
-          participantCount={participantCount}
-          readyCount={readyCount}
-          joinUrl={joinUrl}
-          qrDataUrl={qrDataUrl}
-          candidateText={candidateText}
-          onCandidateChange={setCandidateText}
-          onCandidateBlur={handleCandidateBlur}
-          onStart={handleStartGame}
-          isWsReady={wsReady}
-          error={joinError}
+      {view === 'editor' && (
+        <EditorScreen
+          apiBase={apiBase}
+          maps={maps}
+          onRefreshMaps={loadMaps}
+          onBack={() => setView(editorReturnView)}
         />
       )}
+
+      {view === 'host' && (
+          <HostScreen
+            roomCode={roomCode}
+            participantCount={participantCount}
+            readyCount={readyCount}
+            joinUrl={joinUrl}
+            qrDataUrl={qrDataUrl}
+            candidateText={candidateText}
+            onCandidateChange={setCandidateText}
+            onCandidateBlur={handleCandidateBlur}
+            onStart={handleStartGame}
+            isWsReady={wsReady}
+            error={joinError}
+            maps={maps}
+            selectedMapId={selectedMapId}
+            selectedMapBlueprint={selectedMapBlueprint}
+            onMapChange={setSelectedMapId}
+            onOpenEditor={() => handleOpenEditor('host')}
+          />
+
+      )}
+
 
       {view === 'game' && hostKey && (
         <div className="game-stage">
@@ -428,6 +520,7 @@ function App() {
             assignments={gameData?.assignments || {}}
             lastSpawnEvent={lastSpawnEvent}
             onBack={() => setView('host')}
+            mapBlueprint={gameData?.map || null}
           />
         </div>
       )}
