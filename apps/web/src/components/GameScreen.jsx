@@ -13,6 +13,7 @@ const CLOUD_DROP_OFFSET = 32
 const CLOUD_DROP_JITTER = 18
 const CLOUD_DROP_MIN_Y = 48
 const ZOOM_FACTOR = 0.78
+const FINISH_LINE_LABEL = 'finish-line'
 
 const AVATAR_TYPES = ['airplane', 'cloud', 'bird', 'ufo', 'butterfly']
 
@@ -172,6 +173,134 @@ const getCloudBasePosition = (layout, bounds, index) => {
   return { x: baseX, y: baseY }
 }
 
+const WinnerOverlay = ({ winner, onBack, onClose }) => {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    if (!winner || !canvasRef.current) {
+      return
+    }
+
+    const canvas = canvasRef.current
+    const context = canvas.getContext('2d')
+    if (!context) {
+      return
+    }
+
+    let animationFrameId
+    let particles = []
+
+    const resize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+
+    resize()
+    window.addEventListener('resize', resize)
+
+    const createExplosion = (x, y) => {
+      const colors = [
+        winner.color || '#F6B500',
+        '#E23D2F',
+        '#FFFFFF',
+        '#F6B500'
+      ]
+
+      for (let i = 0; i < 40; i += 1) {
+        const angle = Math.random() * Math.PI * 2
+        const speed = Math.random() * 6 + 2
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          alpha: 1,
+          decay: Math.random() * 0.015 + 0.01
+        })
+      }
+    }
+
+    const loop = () => {
+      context.globalCompositeOperation = 'destination-out'
+      context.fillStyle = 'rgba(0, 0, 0, 0.1)'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.globalCompositeOperation = 'source-over'
+
+      if (Math.random() < 0.05) {
+        createExplosion(
+          Math.random() * canvas.width,
+          Math.random() * canvas.height * 0.6 + canvas.height * 0.1
+        )
+      }
+
+      for (let i = particles.length - 1; i >= 0; i -= 1) {
+        const particle = particles[i]
+        particle.x += particle.vx
+        particle.y += particle.vy
+        particle.vy += 0.15
+        particle.alpha -= particle.decay
+
+        if (particle.alpha <= 0) {
+          particles.splice(i, 1)
+        } else {
+          context.beginPath()
+          context.arc(particle.x, particle.y, 2.5, 0, Math.PI * 2)
+          context.fillStyle = particle.color
+          context.globalAlpha = particle.alpha
+          context.fill()
+        }
+      }
+
+      context.globalAlpha = 1
+      animationFrameId = requestAnimationFrame(loop)
+    }
+
+    loop()
+
+    return () => {
+      window.removeEventListener('resize', resize)
+      cancelAnimationFrame(animationFrameId)
+      particles = []
+    }
+  }, [winner])
+
+  if (!winner) {
+    return null
+  }
+
+  return (
+    <div className="modal-overlay">
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none'
+        }}
+      />
+      <div className="modal-content winner-card" style={{ zIndex: 1, position: 'relative' }}>
+        <button className="modal-close-btn" onClick={onClose} aria-label="Close winner screen">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+        <div className="winner-label">1등</div>
+        <div className="winner-chip" style={{ backgroundColor: winner.color || 'var(--color-secondary)' }} />
+        <div className="winner-name">{winner.name || 'Marble'}</div>
+        <div className="winner-actions">
+          <button className="btn btn-primary" onClick={onBack} style={{ minWidth: '200px' }}>
+            STOP PARTY
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function GameScreen({
   candidates = [],
   assignments = {},
@@ -198,8 +327,11 @@ export function GameScreen({
   const kickerCooldownRef = useRef(new Map())
   const kickerActiveRef = useRef(new Map())
   const effectsRef = useRef([])
+  const winnerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [rankings, setRankings] = useState([])
+  const [winner, setWinner] = useState(null)
+  const [showWinnerOverlay, setShowWinnerOverlay] = useState(true)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -222,6 +354,12 @@ export function GameScreen({
 
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    winnerRef.current = null
+    setWinner(null)
+    setShowWinnerOverlay(true)
+  }, [candidates])
 
   useEffect(() => {
     AVATAR_TYPES.forEach(type => {
@@ -751,6 +889,20 @@ export function GameScreen({
       updateSpawnedObstacles()
     }
 
+    const recordWinner = (marble) => {
+      if (!marble || winnerRef.current) {
+        return
+      }
+      const winnerData = {
+        id: marble.id,
+        name: marble.customName || 'Marble',
+        color: marble.render?.fillStyle
+      }
+      winnerRef.current = winnerData
+      setWinner(winnerData)
+      setShowWinnerOverlay(true)
+    }
+
     Events.on(engine, 'collisionStart', (event) => {
       const now = Date.now()
       const cooldowns = kickerCooldownRef.current
@@ -758,6 +910,19 @@ export function GameScreen({
       event.pairs.forEach((pair) => {
         const bodyA = pair.bodyA
         const bodyB = pair.bodyB
+        const finishBody = bodyA.label === FINISH_LINE_LABEL
+          ? bodyA
+          : bodyB.label === FINISH_LINE_LABEL
+            ? bodyB
+            : null
+
+        if (finishBody && !winnerRef.current) {
+          const marble = finishBody === bodyA ? bodyB : bodyA
+          if (marble.label && marble.label.startsWith('marble-')) {
+            recordWinner(marble)
+          }
+        }
+
         const kicker = bodyA.isKicker ? bodyA : bodyB.isKicker ? bodyB : null
         if (!kicker) {
           return
@@ -1097,6 +1262,26 @@ export function GameScreen({
         context.restore()
       }
 
+      if (hasFloor) {
+        const finishY = toHeight(floorSpec.y ?? 1)
+        const finishInset = toWidth(floorSpec.inset ?? 0, 0)
+        const finishHeight = Math.max(10, wallThickness * 0.55)
+        const finishWidth = Math.max(0, worldWidth - finishInset * 2)
+        const finishTop = finishY - wallThickness / 2 - finishHeight
+        const tileSize = Math.max(12, finishHeight / 2)
+        const tileCount = Math.ceil(finishWidth / tileSize)
+
+        context.save()
+        for (let i = 0; i < tileCount; i += 1) {
+          const x = finishInset + i * tileSize
+          context.fillStyle = i % 2 === 0 ? theme.text : theme.white
+          context.fillRect(x, finishTop, tileSize, finishHeight / 2)
+          context.fillStyle = i % 2 === 0 ? theme.white : theme.text
+          context.fillRect(x, finishTop + finishHeight / 2, tileSize, finishHeight / 2)
+        }
+        context.restore()
+      }
+
       if (render.options.hasBounds) {
         Matter.Render.endViewTransform(render)
       }
@@ -1208,6 +1393,8 @@ export function GameScreen({
       context.restore()
     })
     const wallThickness = toWidth(MAP_BLUEPRINT.wallThickness ?? 56, 56)
+    const floorSpec = MAP_BLUEPRINT.floor || {}
+    const hasFloor = MAP_BLUEPRINT.floor !== false && MAP_BLUEPRINT.floor !== null
     const wallOptions = {
       isStatic: true,
       render: {
@@ -1279,13 +1466,32 @@ export function GameScreen({
       mapWalls.internal.forEach(addPolyline)
     }
 
-    if (MAP_BLUEPRINT.floor !== false && MAP_BLUEPRINT.floor !== null) {
-      const floorSpec = MAP_BLUEPRINT.floor || {}
+    if (hasFloor) {
       const floorY = toHeight(floorSpec.y ?? 1)
       const inset = toWidth(floorSpec.inset ?? 0, 0)
       const floorLeft = { x: inset, y: floorY }
       const floorRight = { x: worldWidth - inset, y: floorY }
       addWallSegment(floorLeft, floorRight)
+
+      const finishHeight = Math.max(10, wallThickness * 0.55)
+      const finishWidth = Math.max(0, worldWidth - inset * 2)
+      const finishLine = Bodies.rectangle(
+        inset + finishWidth / 2,
+        floorY - wallThickness / 2 - finishHeight / 2,
+        finishWidth,
+        finishHeight,
+        {
+          isStatic: true,
+          isSensor: true,
+          label: FINISH_LINE_LABEL,
+          render: {
+            fillStyle: 'transparent',
+            strokeStyle: 'transparent',
+            lineWidth: 0
+          }
+        }
+      )
+      walls.push(finishLine)
     }
 
     MAP_BLUEPRINT.obstacles.forEach((item) => {
@@ -1584,13 +1790,17 @@ export function GameScreen({
 
       const newMarbles = []
       const colors = [theme.primary, theme.secondary, theme.success, theme.warning, '#9B59B6', '#E67E22', '#1ABC9C', '#34495E']
-      const responsiveScale = dimensions.width < 640 || dimensions.height < 520 ? 0.75 : 1
+      const isCompactScreen = dimensions.width < 640 || dimensions.height < 520
+      const responsiveScale = isCompactScreen ? 0.9 : 1
 
       for (let i = 0; i < needed; i += 1) {
-        const x = Common.random(worldWidth * 0.25, worldWidth * 0.75)
-        const y = -40 - (i * 50)
         const currentScale = mapScaleRef.current || 1
-        const size = Common.random(14, 18) * currentScale * responsiveScale
+        const x = Common.random(worldWidth * 0.25, worldWidth * 0.75)
+        const spawnBase = -40 * currentScale
+        const spawnSpread = 220 * currentScale
+        const y = spawnBase - Common.random(0, spawnSpread)
+        const baseSize = Common.random(14, 18) * currentScale
+        const size = Math.max(baseSize * responsiveScale, 12 * currentScale)
 
         const candidateIndex = spawnedRef.current + i
         const candidate = candidates[candidateIndex]
@@ -1748,6 +1958,13 @@ export function GameScreen({
           </div>
         ))}
       </div>
+      {showWinnerOverlay && (
+        <WinnerOverlay
+          winner={winner}
+          onBack={onBack}
+          onClose={() => setShowWinnerOverlay(false)}
+        />
+      )}
     </div>
   )
 }

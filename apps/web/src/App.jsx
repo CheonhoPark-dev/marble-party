@@ -392,7 +392,7 @@ function App() {
             <div className="seo-grid">
               <div>
                 <h3>플레이 방법</h3>
-                <p className="text-caption">방 만들기 -> 코드 공유 -> 모바일 참가 -> 레이스 시작</p>
+                <p className="text-caption">방 만들기 -&gt; 코드 공유 -&gt; 모바일 참가 -&gt; 레이스 시작</p>
               </div>
               <div>
                 <h3>파티에 최적화</h3>
