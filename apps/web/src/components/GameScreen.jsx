@@ -963,6 +963,29 @@ export function GameScreen({
       })
     }
 
+    const limitMarbleSpeed = () => {
+      const bodies = Composite.allBodies(engine.world)
+      const scale = mapScaleRef.current || 1
+      const baseWallThickness = mapBlueprint.wallThickness ?? 56
+      const wallThickness = baseWallThickness * scale
+      const maxSpeed = Math.max(14 * scale, wallThickness * 0.85)
+
+      bodies.forEach((body) => {
+        if (!body.label || !body.label.startsWith('marble-') || body.isStatic) {
+          return
+        }
+        const speed = body.speed ?? Math.hypot(body.velocity.x, body.velocity.y)
+        if (speed <= maxSpeed) {
+          return
+        }
+        const scaleFactor = maxSpeed / speed
+        Matter.Body.setVelocity(body, {
+          x: body.velocity.x * scaleFactor,
+          y: body.velocity.y * scaleFactor
+        })
+      })
+    }
+
     const updateWorld = (event) => {
       updateCamera()
       updateClouds()
@@ -971,6 +994,7 @@ export function GameScreen({
       updateKickerVisuals()
       updateSpawnedObstacles()
       updateSliders()
+      limitMarbleSpeed()
     }
 
     const recordWinner = (marble) => {
