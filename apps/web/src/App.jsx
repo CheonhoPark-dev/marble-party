@@ -1113,8 +1113,21 @@ function App() {
          return
        }
 
+       if (message.type === 'assignments_updated') {
+         const assignments = message.assignments || {}
+         setGameData((prev) => ({
+           candidates: prev?.candidates || [],
+           assignments,
+           map: prev?.map || null,
+         }))
+         if (!hostKey) {
+           setAssignment(assignments[participantId] || null)
+         }
+         return
+       }
 
-      if (message.type === 'spawned_obstacle') {
+       if (message.type === 'spawned_obstacle') {
+
         setLastSpawnEvent({
           participantId: message.participantId,
           obstacleType: message.obstacleType,

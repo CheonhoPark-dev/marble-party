@@ -30,9 +30,32 @@ function buildAssignments(roomId) {
     }
   })
 
-
-
   return assignments
+}
+
+function ensureAssignment(roomId, participant) {
+  const existingAssignments = roomAssignments.get(roomId) || {}
+  const existing = existingAssignments[participant.participantId]
+  if (existing) {
+    return { assignments: existingAssignments, assignment: existing, isNew: false }
+  }
+
+  const nextObstacleId = Object.values(existingAssignments)
+    .reduce((maxId, item) => {
+      const value = Number.isFinite(item?.obstacleId) ? item.obstacleId : -1
+      return Math.max(maxId, value)
+    }, -1) + 1
+
+  const assignment = {
+    obstacleId: nextObstacleId,
+    color: OBSTACLE_COLORS[nextObstacleId % OBSTACLE_COLORS.length],
+    nickname: participant.displayName || `Player ${nextObstacleId + 1}`,
+  }
+
+  existingAssignments[participant.participantId] = assignment
+  roomAssignments.set(roomId, existingAssignments)
+
+  return { assignments: existingAssignments, assignment, isNew: true }
 }
 
 function safeJsonParse(payload) {
@@ -48,6 +71,7 @@ export function attachRoomHub(server) {
   const rooms = new Map()
   const clients = new Map()
   const roomAssignments = new Map()
+  const roomSessions = new Map()
   const spawnCooldowns = new Map()
 
   function getRoomClients(roomId) {
@@ -93,6 +117,7 @@ export function attachRoomHub(server) {
       if (roomSet.size === 0) {
         rooms.delete(client.roomId)
         roomAssignments.delete(client.roomId)
+        roomSessions.delete(client.roomId)
       }
     }
     clients.delete(ws)
@@ -128,6 +153,25 @@ export function attachRoomHub(server) {
       clients.set(ws, { roomId, role, participantId: participant.participantId })
       getRoomClients(roomId).add(ws)
       broadcastRoomState(roomId)
+
+      if (room.status === 'playing') {
+        const session = roomSessions.get(roomId)
+        if (session) {
+          const { assignments, isNew } = ensureAssignment(roomId, participant)
+          ws.send(JSON.stringify({
+            type: 'game_started',
+            roomId,
+            candidates: session.candidates,
+            assignments,
+            map: session.map,
+            mapId: session.mapId,
+          }))
+
+          if (isNew) {
+            broadcastToRoom(roomId, { type: 'assignments_updated', assignments })
+          }
+        }
+      }
     }
   }
 
@@ -155,6 +199,13 @@ export function attachRoomHub(server) {
         mapPayload = safeJsonParse(map.payload)
       }
     }
+
+    roomSessions.set(client.roomId, {
+      candidates,
+      assignments,
+      map: mapPayload,
+      mapId: mapId || null,
+    })
 
     broadcastToRoom(client.roomId, {
       type: 'game_started',
