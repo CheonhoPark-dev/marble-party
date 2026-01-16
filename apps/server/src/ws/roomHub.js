@@ -2,6 +2,7 @@ import { WebSocketServer } from 'ws'
 import { getRoomById, updateRoomStatus } from '../store/room.js'
 import { getParticipantByToken, listParticipants, touchParticipant, getRoomStats } from '../store/participant.js'
 import { getMapById } from '../db/maps.js'
+import { recordGameCompletion, recordGameStart } from '../db/stats.js'
 
 const OBSTACLE_COLORS = ['#FF6B6B', '#4ECDC4', '#FFD93D', '#A78BFA', '#34D399', '#F97316', '#38BDF8', '#F472B6']
 const OBSTACLE_TYPES = ['bomb', 'normal', 'spinner', 'fan']
@@ -188,6 +189,7 @@ export function attachRoomHub(server) {
     updateRoomStatus(client.roomId, 'playing')
 
     const candidates = normalizeCandidates(message?.candidates)
+    recordGameStart()
     const assignments = buildAssignments(client.roomId)
     roomAssignments.set(client.roomId, assignments)
 
@@ -263,6 +265,23 @@ export function attachRoomHub(server) {
     })
   }
 
+  function handleGameCompleted(ws, message) {
+    const client = clients.get(ws)
+    if (!client || client.role !== 'host') {
+      return
+    }
+    const room = getRoomById(client.roomId)
+    if (!room) {
+      return
+    }
+    if (room.status !== 'playing') {
+      return
+    }
+    recordGameCompletion()
+    updateRoomStatus(client.roomId, 'waiting')
+    broadcastRoomState(client.roomId)
+  }
+
   wss.on('connection', (ws) => {
     ws.on('message', (data) => {
       const message = safeJsonParse(data)
@@ -282,6 +301,11 @@ export function attachRoomHub(server) {
 
       if (message.type === 'obstacle_action') {
         handleObstacleAction(ws, message)
+        return
+      }
+
+      if (message.type === 'game_completed') {
+        handleGameCompleted(ws, message)
       }
     })
 

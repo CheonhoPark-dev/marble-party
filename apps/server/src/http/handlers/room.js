@@ -11,6 +11,7 @@ import {
   updateParticipantReady,
   touchParticipant,
 } from '../../store/participant.js'
+import { recordParticipantJoin, recordRoomCreated } from '../../db/stats.js'
 
 function getBearerToken(req) {
   const header = req.get('authorization') || ''
@@ -28,6 +29,7 @@ function getBaseUrl(req) {
 
 export async function createRoomHandler(req, res) {
   const room = createRoom()
+  recordRoomCreated()
   const joinUrl = buildJoinUrl(getBaseUrl(req), room.roomCode)
   const qrDataUrl = joinUrl ? await qrcode.toDataURL(joinUrl) : ''
 
@@ -67,6 +69,7 @@ export function joinRoomHandler(req, res) {
 
   const displayName = sanitizeDisplayName(req.body?.displayName)
   const participant = addParticipant(room.roomId, displayName)
+  recordParticipantJoin()
 
   const roomHub = req.app.locals.roomHub
   if (roomHub) {

@@ -16,6 +16,7 @@ import {
   listMapsHandler,
   updateMapHandler,
 } from './handlers/map.js'
+import { getStatsHandler } from './handlers/stats.js'
 
 const createRoomLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -45,5 +46,7 @@ router.post('/maps', createMapLimiter, createMapHandler)
 router.get('/maps/:mapId', getMapHandler)
 router.put('/maps/:mapId', updateMapHandler)
 router.delete('/maps/:mapId', deleteMapHandler)
+
+router.get('/stats', getStatsHandler)
 
 export default router

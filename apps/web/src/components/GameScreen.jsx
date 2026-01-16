@@ -345,6 +345,7 @@ export function GameScreen({
   assignments = {},
   lastSpawnEvent,
   onBack,
+  onGameComplete,
   mapBlueprint: mapOverride,
   t
 }) {
@@ -1009,6 +1010,9 @@ export function GameScreen({
       winnerRef.current = winnerData
       setWinner(winnerData)
       setShowWinnerOverlay(true)
+      if (typeof onGameComplete === 'function') {
+        onGameComplete(winnerData)
+      }
     }
 
     Events.on(engine, 'collisionStart', (event) => {

@@ -1319,6 +1319,18 @@ function App() {
 
   }
 
+  const handleGameComplete = () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return
+    }
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'game_completed',
+      })
+    )
+  }
+
+
   const handleControllerAction = () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       return
@@ -1461,6 +1473,7 @@ function App() {
             assignments={gameData?.assignments || {}}
             lastSpawnEvent={lastSpawnEvent}
             onBack={() => setView('host')}
+            onGameComplete={handleGameComplete}
             mapBlueprint={gameData?.map || null}
             t={t}
           />
