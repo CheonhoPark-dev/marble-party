@@ -566,6 +566,9 @@ export function GameScreen({
     const engine = Engine.create()
     engineRef.current = engine
     engine.world.gravity.y = 0.6
+    engine.positionIterations = 12
+    engine.velocityIterations = 10
+    engine.constraintIterations = 6
 
     const render = Render.create({
       element: sceneRef.current,
@@ -1928,7 +1931,7 @@ export function GameScreen({
     ])
 
     Render.run(render)
-    const runner = Runner.create()
+    const runner = Runner.create({ delta: 1000 / 120 })
     runnerRef.current = runner
     Runner.run(runner, engine)
   }, [dimensions.width, dimensions.height, mapBlueprint])
