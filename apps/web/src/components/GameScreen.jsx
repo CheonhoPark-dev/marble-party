@@ -284,6 +284,57 @@ const WinnerOverlay = ({ winner, onBack, onClose, t }) => {
             {t.game.stopParty}
           </button>
         </div>
+        <div style={{ marginTop: '36px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            position: 'relative',
+            backgroundColor: 'var(--color-surface)',
+            border: '2px solid var(--color-text)',
+            borderRadius: '12px',
+            padding: '10px 14px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            maxWidth: '280px',
+            lineHeight: '1.4',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            {t.game.customBallCta}
+            <div style={{
+              position: 'absolute',
+              bottom: '-8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '8px solid var(--color-text)'
+            }} />
+            <div style={{
+              position: 'absolute',
+              bottom: '-5px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: '6px solid var(--color-surface)'
+            }} />
+          </div>
+          <a
+            href="https://buymeacoffee.com/undecimber"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ transition: 'transform 0.2s' }}
+          >
+            <img
+              src="/buymeacoffee.png"
+              alt="Buy Me A Coffee"
+              style={{ height: '60px', width: 'auto', display: 'block' }}
+            />
+          </a>
+        </div>
       </div>
     </div>
   )

@@ -14,7 +14,7 @@ import { normalizeRoomCode, sanitizeDisplayName } from '@repo/internal-utils'
 
 const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
 const DEFAULT_MAP_ID = 'uuumToQcVnVK'
-const CANDIDATE_SPLIT_REGEX = /[\n,]+/g
+const CANDIDATE_SPLIT_REGEX = /[\n,、，;；]+/g
 
 const CANDIDATE_COUNT_REGEX = /\*(\d+)$/
 const LANGUAGE_STORAGE_KEY = 'marble-party:lang'
@@ -221,6 +221,7 @@ const TRANSLATIONS = {
       winnerDefault: 'Marble',
       stopParty: 'STOP PARTY',
       closeWinner: 'Close winner screen',
+      customBallCta: "Buy me a coffee and I'll customize your nickname's marble!",
     },
     errors: {
       createRoom: 'Unable to create a room. Please try again.',
@@ -424,6 +425,7 @@ const TRANSLATIONS = {
       winnerDefault: '마블',
       stopParty: '파티 종료',
       closeWinner: '우승 화면 닫기',
+      customBallCta: '커피를 사주시면 여러분 닉네임의 공을 커스텀 해드려요!',
     },
     errors: {
       createRoom: '방을 만들 수 없습니다. 다시 시도해주세요.',
@@ -627,6 +629,7 @@ const TRANSLATIONS = {
       winnerDefault: 'マーブル',
       stopParty: 'パーティー終了',
       closeWinner: '勝者画面を閉じる',
+      customBallCta: 'コーヒーをご支援いただけたら、あなたのニックネームの玉をカスタムします！',
     },
     errors: {
       createRoom: '部屋を作成できません。もう一度お試しください。',
@@ -830,6 +833,7 @@ const TRANSLATIONS = {
       winnerDefault: '弹珠',
       stopParty: '结束派对',
       closeWinner: '关闭获胜画面',
+      customBallCta: '请我喝杯咖啡，我会为你的昵称定制弹珠！',
     },
     errors: {
       createRoom: '无法创建房间，请重试。',
